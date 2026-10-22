@@ -69,6 +69,9 @@ def test_views_reference_only_registry_objects(conn: sqlite3.Connection) -> None
         assert name in names
         refs = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_]\w*)", sql, flags=re.IGNORECASE))
         assert refs
+        ctes = set(re.findall(r"\b(?:WITH|,)\s+([A-Za-z_]\w*)\s+AS\s*\(", sql, flags=re.IGNORECASE))
+        refs -= ctes  # a CTE name is a local alias, not a schema object
+        assert refs
         assert refs <= all_objects
         assert refs <= names, f"{name} reads unregistered {refs - names}"
 

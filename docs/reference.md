@@ -97,6 +97,31 @@ processed activities; `partial` and `failed` are counted separately. Unlike `upd
 There is no `--sport` selector and no `--all` or `--failed-only` flag in v1: no selector means
 all activities.
 
+### Importing FORM goggles swims: `garmin-archive import-form`
+
+```bash
+garmin-archive import-form --url '<pre-signed export link>'   # download the export ZIP, then import
+garmin-archive import-form FILE [FILE ...]                    # local .fit or .zip files (attachments)
+```
+
+Provide either `FILE` arguments or `--url`, not both. The command needs no credentials and no Garmin API access. The URL is used only for the download and is never echoed in output, errors or logs. Each imported FIT file is stored unchanged as a raw payload; `form_sessions` and `form_lengths` are then rebuilt from all stored FORM payloads, and each session is matched to a Garmin swim by start time. Re-importing the same file is a no-op. `reprocess` also rebuilds these tables.
+
+| Exit code | Outcome |
+| --------- | ------- |
+| 0 | Every file imported (or already present) |
+| 2 | Nothing valid to import, or bad arguments (both or neither of `FILE` and `--url`) |
+| 4 | The download failed (`FORM_DOWNLOAD_ERROR`) |
+| 6 | Partial: some files imported, some rejected |
+
+**Tables.** `form_sessions` has one row per FORM swim: `form_session_id`, `start_at_utc`, `local_date`, `environment` (`pool` or `open_water`), `pool_length_m`, distance, active lengths, durations, strokes, HR, `matched_activity_id`, `match_delta_s` and `pool_length_mismatch`. `form_lengths` has one row per length, keyed by `(form_session_id, length_index)`, with `length_type` (including drill), `stroke_type`, distance, durations, `stroke_count`, `avg_stroke_rate_spm`, `swolf` and `likely_unrecorded_swim`. Metrics the file does not carry are NULL. Device serial numbers are not stored.
+
+**View precedence.** `v_swimming` and `v_swim_lengths` expose a `data_source` column (`form` or `garmin`):
+
+- A Garmin pool swim matched to a FORM session takes its swim totals (distance, lengths, strokes, SWOLF, stroke rate, swim and rest durations, paces) from FORM, and its lengths from `form_lengths`. HR, calories, training metrics and every other column stay Garmin.
+- `v_swimming` keeps the watch values in `garmin_distance_m`, `garmin_active_lengths`, `garmin_active_swim_duration_s` and `garmin_recorded_rest_duration_s`.
+- Open-water matches stay Garmin.
+- An unmatched FORM session that overlaps no Garmin swim appears as a FORM-only row (Garmin-only columns NULL). An unmatched session that overlaps a Garmin swim is excluded.
+
 ### Activity processing
 
 Processing turns archived raw payloads into rebuildable derived tables. Every derived row

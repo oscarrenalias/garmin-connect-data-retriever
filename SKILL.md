@@ -44,6 +44,8 @@ Run all commands from the repo root. Every command prints exactly **one JSON doc
 ```bash
 uv run garmin-archive update [--full]                 # sync from Garmin (network), then process new or changed activities
 uv run garmin-archive reprocess [--activity-id ID]    # rebuild analysis tables offline (no network)
+uv run garmin-archive import-form --url '<link>'      # import a FORM goggles export from a download link (no credentials)
+uv run garmin-archive import-form <file> [<file> ...] # import FORM .fit/.zip attachments
 uv run garmin-archive schema                          # list queryable tables and views, with grain and columns
 uv run garmin-archive describe <name>                 # one table or view: grain, columns, row count
 uv run garmin-archive sample <name> [--limit 5]       # first rows of a table or view
@@ -55,6 +57,12 @@ uv run garmin-archive auth check                      # get a token and make one
 - `update` is incremental. It fetches new and changed activities, re-checks the last 14 days, and retries earlier failures. A routine run takes about 10 seconds. `--full` re-downloads everything. Only use it when the user asks, or when data looks stale or wrong.
 - If an `update` is interrupted or partial, just run `update` again. Queued work is durable and is picked up automatically.
 - `schema`, `describe`, `sample` and `sql` never touch the network and never need credentials.
+
+## FORM Goggles Swims
+
+When the user forwards a FORM export email or link, run `garmin-archive import-form --url '<link>'`. For attachments, run `garmin-archive import-form <file>`. **Never repeat the link back to the user**, and never write it into files or notes: it is a pre-signed download URL. Exit codes: 0 done, 2 nothing valid, 4 download failed, 6 partial.
+
+Matched pool swims in `v_swimming` and `v_swim_lengths` take swim totals and lengths from FORM (`data_source = 'form'`). The watch values stay in the `garmin_*` columns, and HR and training metrics stay Garmin. Open-water swims stay Garmin. Mention the `data_source` when comparing swims.
 
 ## Recommended Workflow
 
