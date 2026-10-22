@@ -5,7 +5,7 @@ description: "Python project scaffold (uv, ruff, pyright, pytest, Typer) plus a 
 dependencies: null
 priority: high
 complexity: null
-status: draft
+status: planned
 tags:
 - scaffold
 - discovery
@@ -13,7 +13,7 @@ tags:
 scope:
   in: null
   out: null
-feature_root_id: null
+feature_root_id: B-bc9d1f10
 ---
 # Project scaffold and Garmin contract discovery tool
 
