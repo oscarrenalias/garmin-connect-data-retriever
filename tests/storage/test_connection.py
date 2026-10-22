@@ -76,7 +76,9 @@ def test_random_bytes_file_raises_storage_error(tmp_path: Path) -> None:
     with pytest.raises(StorageError) as w:
         open_write_connection(db, busy_timeout_ms=1000)
     assert isinstance(w.value.__cause__, sqlite3.Error)
-    with pytest.raises(StorageError):
+    # SQLite opens read-only connections lazily, so the failure may only surface
+    # on the first query depending on the platform's SQLite build.
+    with pytest.raises((StorageError, sqlite3.DatabaseError)):
         conn = open_read_connection(db, busy_timeout_ms=1000)
         conn.execute("SELECT count(*) FROM sqlite_master").fetchall()
 

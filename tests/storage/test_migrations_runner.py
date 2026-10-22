@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -26,7 +27,7 @@ class FixedClock:
 
 
 @pytest.fixture
-def conn() -> sqlite3.Connection:
+def conn() -> Iterator[sqlite3.Connection]:
     c = sqlite3.connect(":memory:", isolation_level=None)
     yield c
     c.close()

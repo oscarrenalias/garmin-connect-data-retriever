@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 
@@ -35,7 +35,7 @@ def _unlock(fd: int) -> None:
 
 
 @contextmanager
-def writer_lock(db_path: Path) -> Iterator[None]:
+def writer_lock(db_path: Path) -> Generator[None]:
     """Hold the exclusive writer lock for ``db_path`` for the duration of the block.
 
     The lock lives on ``<db_path>.lock``; the file may remain on disk after release.

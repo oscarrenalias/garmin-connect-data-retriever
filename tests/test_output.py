@@ -3,8 +3,8 @@ from __future__ import annotations
 import io
 import json
 
-import click
 import pytest
+from typer._click import exceptions as click  # pyright: ignore[reportMissingModuleSource]
 
 from garmin_archive.models import (
     AccountMismatchError,

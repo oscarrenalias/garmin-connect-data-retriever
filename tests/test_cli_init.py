@@ -38,8 +38,8 @@ def test_schema_too_new(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert _run(capsys, ["--db", str(db), "init"])[0] == 0
     conn = sqlite3.connect(db)
     conn.execute(
-        "INSERT INTO schema_migrations (version, name, checksum, applied_at) "
-        "VALUES (99, 'x', 'x', '2026-01-01T00:00:00Z')"
+        "INSERT INTO schema_migrations (version, applied_at_utc, checksum) "
+        "VALUES (99, '2026-01-01T00:00:00.000000Z', 'x')"
     )
     conn.commit()
     conn.close()
