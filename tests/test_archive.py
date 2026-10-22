@@ -1022,7 +1022,7 @@ def test_mark_pending_creates_and_does_not_downgrade(
     _activity(writer)
     writer.mark_pending(activity_id=AID, kind="summary")
     assert reader.resource_states(AID) == {"summary": "pending"}
-    _summary(writer)
+    _summary(writer, b"{}")
     writer.mark_pending(activity_id=AID, kind="summary")
     assert reader.resource_states(AID)["summary"] == "available"
 
