@@ -245,12 +245,17 @@ class PageRecorder:
                 )
                 start = _parse_utc_start(item.get("startTimeGMT"))
                 recent = start is not None and start >= threshold
-                if self.full or inserted or is_changed or recent:
+                if self.full or inserted or is_changed:
                     kinds = _FETCH_KINDS
                 else:
+                    # Garmin recalculates summary metrics after upload; workouts and original
+                    # files don't change, so the recent window only refreshes the summary.
                     states = self.reader.resource_states(activity_id)
                     kinds = tuple(
-                        k for k in _FETCH_KINDS if states.get(k, STATE_FAILED) == STATE_FAILED
+                        k
+                        for k in _FETCH_KINDS
+                        if states.get(k, STATE_FAILED) == STATE_FAILED
+                        or (recent and k == KIND_SUMMARY)
                     )
                 if kinds:
                     self.writer.mark_pending(activity_id=activity_id, kinds=kinds)

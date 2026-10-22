@@ -364,6 +364,94 @@ def test_changed_body_creates_new_version(
     assert current.id == second.payload_id
 
 
+def _original(writer: ArchiveWriter, body: bytes) -> RecordResult:
+    return writer.record_response(
+        resource_key=original_file_key(AID),
+        kind="original_file",
+        activity_id=AID,
+        sync_run_id=None,
+        method="GET",
+        path=f"/files/{AID}",
+        request_params=None,
+        http_status=200,
+        content_type="application/zip",
+        body=body,
+    )
+
+
+def _zip(members: dict[str, bytes], stamp: tuple[int, ...] = (1980, 1, 1, 0, 0, 0)) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(zipfile.ZipInfo(name, stamp), data)  # type: ignore[arg-type]
+    return buf.getvalue()
+
+
+def test_reserialized_json_reuses_payload(
+    writer: ArchiveWriter, reader: ArchiveReader, conn: sqlite3.Connection
+) -> None:
+    _activity(writer)
+    first = _summary(writer, b'{"a": 1, "b": [1, 2]}')
+    second = _summary(writer, b'{\n  "b": [1, 2],\n  "a": 1\n}')
+    assert second.is_new_payload is False
+    assert second.payload_id == first.payload_id
+    assert conn.execute("SELECT COUNT(*) FROM raw_payloads").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM fetch_events").fetchone()[0] == 2
+    assert reader.get_payload(first.payload_id).body_blob == b'{"a": 1, "b": [1, 2]}'
+
+
+def test_changed_json_content_adds_version_and_keeps_old_bytes(
+    writer: ArchiveWriter, reader: ArchiveReader
+) -> None:
+    _activity(writer)
+    first = _summary(writer, b'{"a": 1}')
+    second = _summary(writer, b'{ "a": 2 }')
+    assert second.is_new_payload is True
+    versions = reader.payload_versions(summary_key(AID))
+    assert [v.body_blob for v in versions] == [b'{"a": 1}', b'{ "a": 2 }']
+    assert versions[0].id == first.payload_id
+
+
+def test_rezipped_members_reuse_payload(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
+    _activity(writer)
+    members = {"a.fit": b"FITDATA" * 50, "b.txt": b"x"}
+    first = _original(writer, _zip(members))
+    second = _original(writer, _zip(members, (2024, 5, 6, 7, 8, 10)))
+    assert second.sha256 != first.sha256
+    assert second.is_new_payload is False
+    assert second.payload_id == first.payload_id
+    assert conn.execute("SELECT COUNT(*) FROM raw_payloads").fetchone()[0] == 1
+
+
+def test_zip_with_changed_member_adds_version(writer: ArchiveWriter) -> None:
+    _activity(writer)
+    first = _original(writer, _zip({"a.fit": b"one"}))
+    changed = _original(writer, _zip({"a.fit": b"two"}))
+    renamed = _original(writer, _zip({"b.fit": b"two"}))
+    assert changed.is_new_payload is True
+    assert renamed.is_new_payload is True
+    assert len({first.payload_id, changed.payload_id, renamed.payload_id}) == 3
+
+
+def test_corrupt_zip_is_not_equivalent(writer: ArchiveWriter) -> None:
+    _activity(writer)
+    good = _zip({"a.fit": b"one"})
+    first = _original(writer, good)
+    corrupt = _original(writer, b"PK\x03\x04 not really a zip")
+    again = _original(writer, b"PK\x03\x04 not really a zip!")
+    assert corrupt.is_new_payload is True
+    assert again.is_new_payload is True
+    assert corrupt.payload_id != first.payload_id
+
+
+def test_unsafe_zip_member_name_is_not_equivalent(writer: ArchiveWriter) -> None:
+    _activity(writer)
+    first = _original(writer, _zip({"../evil.fit": b"one"}))
+    second = _original(writer, _zip({"../evil.fit": b"one"}, (2024, 1, 1, 0, 0, 0)))
+    assert first.is_new_payload is True
+    assert second.is_new_payload is True
+
+
 def test_old_body_returning_repoints_resource(writer: ArchiveWriter, reader: ArchiveReader) -> None:
     _activity(writer)
     first = _summary(writer, b"A")

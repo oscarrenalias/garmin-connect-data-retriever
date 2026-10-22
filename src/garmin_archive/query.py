@@ -132,6 +132,7 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "one row per payload version",
         notes=(
             "Keeps every payload version; for an activity's current raw JSON, join activity_resources.current_payload_id = raw_payloads.id and don't count raw_payloads rows directly.",
+            "A new version is stored only when content changes (parsed JSON, or ZIP member contents), not when only the bytes differ.",
             "Query JSON with json_extract(body_text, ...).",
         ),
     ),

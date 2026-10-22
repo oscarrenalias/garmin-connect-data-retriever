@@ -33,8 +33,10 @@ or migrates a database, and a missing one is a storage error (exit 5). It holds 
 for the whole run (`ARCHIVE_LOCKED` if another writer has it).
 
 By default a run fetches resources of activities that are new, whose search item changed, or
-that started in the last 14 days, plus any resource still `pending` or `failed`. `--full`
-fetches all three resources for every activity.
+that started in the last 14 days, plus any resource still `pending` or `failed`. Activities
+queued only by the 14-day window refresh just their summary (Garmin recalculates summary
+metrics after upload; workouts and original files don't change). `--full` fetches all three
+resources for every activity.
 
 **Re-running.** There is no resume command. Pending work is stored durably, so after a
 `partial` or `interrupted` run (or a crash) just run `update` again; run `update --full` again
@@ -380,7 +382,11 @@ that is not a `search_page`, also raises `StorageError`.
 - Bodies are stored as received: a BLOB with the authoritative bytes, plus decoded TEXT only
   for JSON and `text/*` content types. JSON is never re-serialized.
 - A payload is deduplicated on `(resource_key, sha256)`. Unchanged content reuses the existing
-  row; changed content adds a new version. Every fetch appends a `fetch_events` row.
+  row; changed content adds a new version. A body with a different hash is also treated as
+  unchanged when it equals the resource's latest version in content: the same parsed JSON, or
+  a ZIP with the same member names and member bytes. A new version is stored only when content
+  changes, not when only the bytes differ (Garmin re-serializes JSON and re-zips files on every
+  download). The first-seen bytes stay authoritative; existing duplicate versions are kept. Every fetch appends a `fetch_events` row.
 - The archive never deletes payloads. Failures and disappeared resources only add fetch events
   and change state; `current_payload_id` keeps pointing at the last good payload.
 - `request_params` are stored as compact sorted JSON. Names containing `auth`, `token`, `key`,

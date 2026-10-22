@@ -34,20 +34,51 @@ def _is_unsafe(name: str) -> bool:
     return ".." in PurePosixPath(normalized).parts
 
 
-def extract_fit(body: bytes) -> bytes:
-    """Return the bytes of the first ``.fit`` member of the ZIP ``body``."""
+def _open_checked_zip(body: bytes) -> zipfile.ZipFile:
+    """Open the ZIP ``body`` after the entry-count, unsafe-name and total-size checks."""
     try:
         archive = zipfile.ZipFile(io.BytesIO(body))
     except (zipfile.BadZipFile, ValueError, OSError) as exc:
         raise FitUnavailableError("original_file payload is not a valid ZIP") from exc
-    with archive:
-        infos = archive.infolist()
+    infos = archive.infolist()
+    try:
         if len(infos) > MAX_ZIP_ENTRIES:
             raise FitUnavailableError("ZIP has too many entries")
         if any(_is_unsafe(info.filename) for info in infos):
             raise FitUnavailableError("ZIP contains an unsafe member path")
         if sum(info.file_size for info in infos) > MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES:
             raise FitUnavailableError("ZIP uncompressed size exceeds limit")
+    except FitUnavailableError:
+        archive.close()
+        raise
+    return archive
+
+
+def zip_member_contents(body: bytes) -> dict[str, bytes]:
+    """Return ``{member name: uncompressed bytes}`` of the ZIP ``body``, within the safety limits.
+
+    Raises ``FitUnavailableError`` for a bad ZIP, a limit breach or an unreadable member.
+    """
+    members: dict[str, bytes] = {}
+    with _open_checked_zip(body) as archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            try:
+                with archive.open(info) as member:
+                    data = member.read(MAX_FIT_UNCOMPRESSED_BYTES + 1)
+            except (zipfile.BadZipFile, NotImplementedError, RuntimeError, OSError) as exc:
+                raise FitUnavailableError("ZIP member could not be read") from exc
+            if len(data) > MAX_FIT_UNCOMPRESSED_BYTES:
+                raise FitUnavailableError("ZIP member exceeds size limit")
+            members[info.filename] = data
+    return members
+
+
+def extract_fit(body: bytes) -> bytes:
+    """Return the bytes of the first ``.fit`` member of the ZIP ``body``."""
+    with _open_checked_zip(body) as archive:
+        infos = archive.infolist()
         for info in infos:
             if info.is_dir() or not info.filename.lower().endswith(".fit"):
                 continue
