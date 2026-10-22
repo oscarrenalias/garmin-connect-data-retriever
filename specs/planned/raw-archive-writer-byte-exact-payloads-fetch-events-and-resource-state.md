@@ -5,14 +5,14 @@ description: "Atomic byte-exact raw payload storage with dedupe/versioning, fetc
 dependencies: null
 priority: high
 complexity: null
-status: draft
+status: planned
 tags:
 - storage
 - archive
 scope:
   in: null
   out: null
-feature_root_id: null
+feature_root_id: B-528c9b69
 ---
 # Raw archive writer: byte-exact payloads, fetch events and resource state
 
