@@ -56,11 +56,11 @@ Success:
 ```json
 {
   "status": "error",
-  "error": {"code": "NOT_INITIALIZED", "message": "...", "retryable": false, "details": null}
+  "error": {"code": "NOT_INITIALIZED", "message": "...", "retryable": false, "details": {}}
 }
 ```
 
-Unexpected exceptions print a traceback to stderr and emit `INTERNAL_ERROR` on stdout.
+`details` is an empty object when there is nothing to add. Unexpected exceptions print a traceback to stderr and emit `INTERNAL_ERROR` on stdout.
 Credentials and tokens never appear in output.
 
 ### Exit codes
@@ -88,6 +88,71 @@ Codes 4, 6, 7 and 8 are reserved for later features.
 - `activity_resources.kind` is one of `search_item`, `summary`, `workouts`, `original_file`
   or `imported_file`. `search_item` represents the SPEC §5.1 link from an activity to its
   item inside a stored search-page payload (payload id plus JSON pointer).
+
+### Raw archive writer and reader
+
+`garmin_archive.archive` (re-exported from the package root as `ArchiveWriter`, `ArchiveReader`,
+`RecordResult`, `RawPayload` and `FetchEvent`) stores Garmin responses exactly as received
+(SPEC §5.1, §6.2). It is library-only and makes no network calls.
+
+**Resource keys.** Every payload is identified by a resource key. Build keys with the
+constructors rather than by hand:
+
+| Constructor | Key |
+| ----------- | --- |
+| `search_page_key({"start": 0, "limit": 50})` | `search_page:limit=50:start=0` (params sorted by name; `start` and `limit` required; bools as `true`/`false`) |
+| `summary_key("1001")` | `summary:1001` |
+| `workouts_key("1001")` | `workouts:1001` |
+| `original_file_key("1001")` | `original_file:1001` |
+
+Activity ids are TEXT strings of ASCII digits. `validate_resource_key` rejects malformed keys
+and keys whose `activity_id` disagrees. `imported_file` is reserved and cannot be recorded.
+
+```python
+writer = ArchiveWriter(conn, clock)  # conn: sqlite3 connection, clock: injected Clock
+writer.upsert_activity(
+    activity_id="1001", owner_profile_id=None, parent_activity_id=None, type_key=None
+)
+result = writer.record_response(
+    resource_key=summary_key("1001"), kind="summary", activity_id="1001",
+    sync_run_id=None, method="GET", path="/example/summary/1001", request_params=None,
+    http_status=200, content_type="application/json", body=b'{"example": true}',
+)
+```
+
+**`ArchiveWriter` methods.**
+
+- `upsert_activity`: insert or update an `activity_archive` row; returns `True` when inserted.
+- `mark_summary_check`: record the summary check time and availability status.
+- `record_response`: store a body plus its fetch event and update `activity_resources`.
+  Returns a `RecordResult` (`payload_id`, `fetch_event_id`, `is_new_payload`, `sha256`).
+- `record_failure`: record a failed fetch (`unavailable`, `forbidden` or `failed`) with an
+  error code and optional retry time; stores no body and returns the fetch event id.
+- `record_search_item`: link an activity's `search_item` resource to an item
+  (`json_pointer` of the form `/<index>`) inside a stored `search_page` payload.
+
+**Error semantics.** Arguments are validated before anything is written, and bad input raises
+`ValueError` (bad id, key, kind, state or availability status). Each method runs in exactly one
+transaction; any `sqlite3.Error` is rolled back and re-raised as `StorageError` (original
+exception chained as `__cause__`). Referencing an activity that is not archived, or a payload
+that is not a `search_page`, also raises `StorageError`.
+
+**Dedupe, versioning and retention.**
+
+- Bodies are stored as received: a BLOB with the authoritative bytes, plus decoded TEXT only
+  for JSON and `text/*` content types. JSON is never re-serialized.
+- A payload is deduplicated on `(resource_key, sha256)`. Unchanged content reuses the existing
+  row; changed content adds a new version. Every fetch appends a `fetch_events` row.
+- The archive never deletes payloads. Failures and disappeared resources only add fetch events
+  and change state; `current_payload_id` keeps pointing at the last good payload.
+- `request_params` are stored as compact sorted JSON. Names containing `auth`, `token`, `key`,
+  `secret`, `password` or `cookie` (case-insensitive) are rejected with `ValueError`, so
+  credentials cannot be persisted through this path.
+
+**`ArchiveReader`** is read-only (works on read-only connections): `get_payload` (raises
+`KeyError` if absent), `current_payload(activity_id, kind)`, `payload_versions(resource_key)`,
+`resource_states(activity_id)` and `fetch_events(resource_key)`. Read failures raise
+`StorageError`.
 
 ## Development
 

@@ -55,8 +55,15 @@ def test_success_includes_warnings() -> None:
 def test_error_envelope_defaults() -> None:
     assert error("C", "msg") == {
         "status": "error",
-        "error": {"code": "C", "message": "msg", "retryable": False, "details": None},
+        "error": {"code": "C", "message": "msg", "retryable": False, "details": {}},
     }
+
+
+def test_error_default_details_is_empty_dict_and_not_shared() -> None:
+    first = error("X", "m")
+    assert first["error"]["details"] == {}
+    first["error"]["details"]["k"] = "v"
+    assert error("X", "m")["error"]["details"] == {}
 
 
 def test_error_envelope_with_details() -> None:
