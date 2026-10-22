@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote
@@ -65,7 +65,7 @@ def open_read_connection(path: Path, *, busy_timeout_ms: int) -> sqlite3.Connect
 
 
 @contextmanager
-def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+def transaction(conn: sqlite3.Connection) -> Generator[sqlite3.Connection]:
     """Run a ``BEGIN IMMEDIATE`` transaction: commit on success, roll back on error."""
     conn.execute("BEGIN IMMEDIATE")
     try:
