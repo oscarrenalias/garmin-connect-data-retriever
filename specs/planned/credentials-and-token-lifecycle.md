@@ -5,7 +5,7 @@ description: "API key providers (explicit/env/keyring/file), secure key storage,
 dependencies: null
 priority: high
 complexity: null
-status: draft
+status: planned
 tags:
 - auth
 - security
@@ -13,7 +13,7 @@ tags:
 scope:
   in: null
   out: null
-feature_root_id: null
+feature_root_id: B-d67ff396
 ---
 # Credentials and token lifecycle
 
