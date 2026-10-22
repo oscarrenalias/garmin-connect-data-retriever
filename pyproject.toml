@@ -30,7 +30,7 @@ packages = ["src/garmin_archive"]
 target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
-extend-exclude = [".agents", ".claude", ".takt", "templates"]
+extend-exclude = [".agents", ".claude", ".takt", "templates", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
