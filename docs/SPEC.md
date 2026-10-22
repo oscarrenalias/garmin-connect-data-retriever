@@ -219,6 +219,16 @@ Decode FIT using the official SDK. Preserve the original ZIP even if decoding fa
 - Preserve multisport parents and children, but avoid summing both in default volume analysis. Do not parse the same parent FIT sessions into child activities without a verified correspondence.
 - Changed inputs or processor versions trigger reprocessing. Replace an activity's derived rows atomically, removing obsolete rows. On failure retain its prior successful analytical version with an explicit stale/failed status. Reprocessing is offline and must not alter raw payloads.
 
+### 7.3a v1 implementation decisions (2026-10-22)
+
+The lean v1 implementation intentionally deviates from §7.1–§7.3 and §9 as follows:
+- **Families:** running, swimming, hiit, cardio (`indoor_cardio`), cycling, walking and other. These are kept separate. hiit is not part of cardio.
+- **Sport metrics:** sport metrics exist for running, swimming, cycling and cardio. `cycling_metrics` and `v_cycling` are added. `cardio_metrics` holds steps, sets, reps and set durations; `cardio_subtype` and the floors columns are dropped.
+- **`activity_sets`:** a common table built from FIT `set` messages. Cardio, hiit, strength and mobility files have sets but no laps.
+- **Primary keys:** `(activity_id, lap_index)`, `(activity_id, sample_index)` and `(activity_id, length_index)`. `session_index` is a plain column, not part of these keys.
+- **Not built:** `metric_provenance`, `activity_intervals`, the FIT fallback for summary metrics, and `v_archive_coverage`. The derived rows carry `processing_run_id` and `source_payload_id`.
+- **`reprocess`:** with no selector, it rebuilds all activities. `--activity-id` rebuilds a single one. `--sport` is not built.
+
 ### 7.4 Stable analytical views
 
 Expose `v_activity_summary`, `v_running`, `v_swimming`, `v_cardio`, `v_swim_lengths` and `v_archive_coverage`.

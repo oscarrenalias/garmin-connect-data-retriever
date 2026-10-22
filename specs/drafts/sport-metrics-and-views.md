@@ -41,10 +41,10 @@ Add sport-specific metrics for **running, swimming, cycling and cardio**, per-le
    - **`swimming_metrics`** (family `swimming`):
      - `swim_environment`: `pool` for `lap_swimming`, `open_water` for `open_water_swimming`.
      - `pool_length_m`: convert yards ×0.9144. An unknown unit gives NULL plus a warning. Always NULL for open water.
-     - active lengths, total strokes, avg SWOLF, avg distance per stroke (m), avg stroke rate (strokes/min).
+     - active lengths, total strokes, avg SWOLF, avg distance per stroke (m) and avg stroke rate (strokes/min), copied as reported in the summary JSON. Nothing is recomputed locally.
      - `active_swim_duration_s`: the sum of timer time over **active** lengths.
      - `recorded_rest_duration_s`: the sum of **idle** length time.
-     - `length_coverage_status`: `complete`, `partial` or `none`.
+     - `length_coverage_status`: `none` when the activity has no length records, `complete` otherwise.
      - Do not treat elapsed-minus-timer as rest. Open water has no lengths and no pool length.
    - **`cycling_metrics`** (family `cycling`): avg/max cadence (rpm), avg/max/normalized power (W), training stress score, intensity factor. Source: summary JSON.
    - **`cardio_metrics`** (family `cardio`):
@@ -65,11 +65,11 @@ Add sport-specific metrics for **running, swimming, cycling and cardio**, per-le
    - **`v_swim_lengths`**: lengths, plus `pace_s_per_100m` for active lengths with distance > 0.
    - **`v_cycling`** and **`v_cardio`**: activities joined with their metrics.
 
-   All sport views exclude multisport parents. SQL comments in each view state its grain, units and whether its times include pauses or rests. Paces are never averaged in views. The skill aggregates time ÷ distance.
+   All sport views exclude multisport parents. Each view has one short header comment stating its grain, units and whether its times include pauses or rests. Paces are never averaged in views. The skill aggregates time ÷ distance.
 
 ## Acceptance Criteria
 
-Tests use synthetic in-memory FIT files from the existing test helper plus copies of the committed sanitized summary fixtures. No network.
+Tests build synthetic FIT bytes with `garmin_fit_sdk.Encoder` and use copies of the committed sanitized summary fixtures. Numeric assertions use a small tolerance. No network.
 
 1. Gates pass: `uv run pytest`, `ruff check`, `ruff format --check`, `pyright`.
 2. **Running** (summary fixture `running-1`):
@@ -91,7 +91,7 @@ Tests use synthetic in-memory FIT files from the existing test helper plus copie
    - `v_swimming` and `v_swim_lengths` paces are correct.
    - A multisport parent has `include_in_volume_totals = 0` and is absent from the sport views.
    - Every view is queryable after `init` on an empty DB.
-9. Reprocessing replaces the metrics and length rows atomically, together with the common rows. There are no duplicates after two runs.
+9. The atomic-replace test from the processing spec also covers the metrics and length tables: no duplicates after two runs.
 
 ## Out of scope
 

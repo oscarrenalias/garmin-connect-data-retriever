@@ -58,7 +58,7 @@ Turn the raw archive into rebuildable analytical tables that every activity gets
      - `cadence` (raw FIT value) and `cadence_unit` (`fit_rpm`). The sport spec converts cadence.
    - **`activity_sets`**: one row per FIT `set` message. PK `(activity_id, set_index)`. Columns: `set_type` (active/rest), start UTC, `duration_s`, `repetitions`, `weight_kg`, `category` (raw).
 3. **FIT handling.**
-   - Read the ZIP in memory. Reject members with absolute paths or `..`, and enforce sane size and entry-count limits.
+   - Read the ZIP in memory. Reject members with absolute paths or `..`, and enforce fixed size and entry-count limits (module constants).
    - Decode the first `.fit` member with the SDK.
    - A missing file, a non-ZIP body or a decode error does not fail the activity. It is processed from JSON only, with `processing_status = 'partial'` and a warning in its processing run.
    - A multisport parent's FIT sessions are stored on the parent only. Never copy them to the children.
@@ -68,14 +68,14 @@ Turn the raw archive into rebuildable analytical tables that every activity gets
    - On an unexpected error, roll back, so the previous rows stay. Record the run as `failed` and continue with the next activity.
    - Use `executemany` for samples. A Pi must cope with about 500k sample rows overall.
 5. **When processing runs.**
-   - At the end of every `update`, process every activity whose `input_fingerprint` differs from its last successful processing run. That covers new activities, new payload versions and a new processor version.
-   - `update` output gains `processed` and `processing_failed` counters and drops the "archive only" warning.
+   - At the end of every `update`, process every activity whose `input_fingerprint` differs from its last `processed` or `partial` run, so a partial activity is not retried until its inputs change. That covers new activities, new payload versions and a new processor version. The search item is deliberately left out of the fingerprint, because it is only a fallback source.
+   - `update` output gains `processed` and `processing_failed` counters.
    - A processing failure never changes the sync status. Archive and processing are independent outcomes (SPEC §6.2).
 6. **`garmin-archive reprocess`.** Offline rebuild of all activities, or one with `--activity-id`. It runs regardless of fingerprints, holds the writer lock, and prints JSON counters: processed, partial, failed. Exit codes: 0 on success, 7 if any activity failed, 5 for storage errors.
 
 ## Acceptance Criteria
 
-Tests use synthetic FIT files built in memory by a test helper (the FIT SDK's encoder, or a minimal hand-built FIT writer in `tests/`), plus copies of the committed sanitized summary fixtures. No real activity files are committed, and there is no network.
+Tests build synthetic FIT bytes in memory with `garmin_fit_sdk.Encoder`, which is installed and round-trips session, lap, record, set and length messages. They also use copies of the committed sanitized summary fixtures. Numeric assertions use a small tolerance (the SDK rounds scaled fields such as altitude). No real activity files are committed, and there is no network.
 
 1. Gates pass: `uv run pytest`, `ruff check`, `ruff format --check`, `pyright`.
 2. Every type key in the table maps to its family. `mobility`, `strength_training` and an unknown key map to `other`. An activity named "Morning Run" with type `cycling` is `cycling`.
