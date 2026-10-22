@@ -8,7 +8,7 @@ import re
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from garmin_archive.models import Clock, StorageError, utc_rfc3339
 from garmin_archive.storage import connection
@@ -509,3 +509,147 @@ class ArchiveWriter:
             )
 
         self._run(work)
+
+
+@dataclass(frozen=True)
+class RawPayload:
+    """One ``raw_payloads`` row; ``body_blob`` holds the authoritative bytes."""
+
+    id: int
+    resource_key: str
+    activity_id: str | None
+    kind: str
+    content_type: str | None
+    encoding: str | None
+    body_text: str | None
+    body_blob: bytes
+    sha256: str
+    byte_count: int
+    first_seen_at_utc: str
+
+
+@dataclass(frozen=True)
+class FetchEvent:
+    """One ``fetch_events`` row; ``request_params`` is the parsed JSON object or ``None``."""
+
+    id: int
+    sync_run_id: int | None
+    resource_key: str
+    method: str
+    path: str
+    request_params: dict[str, object] | None
+    fetched_at_utc: str
+    http_status: int | None
+    payload_id: int | None
+    etag: str | None
+    last_modified: str | None
+    error_code: str | None
+
+
+_PAYLOAD_COLUMNS = (
+    "id, resource_key, activity_id, kind, content_type, encoding, body_text, body_blob,"
+    " sha256, byte_count, first_seen_at_utc"
+)
+_FETCH_EVENT_COLUMNS = (
+    "id, sync_run_id, resource_key, method, path, request_params_json, fetched_at_utc,"
+    " http_status, payload_id, etag, last_modified, error_code"
+)
+
+
+def _payload_from_row(row: tuple[object, ...]) -> RawPayload:
+    (pid, key, activity_id, kind, ctype, enc, text, blob, sha, count, seen) = row
+    return RawPayload(
+        id=int(str(pid)),
+        resource_key=str(key),
+        activity_id=None if activity_id is None else str(activity_id),
+        kind=str(kind),
+        content_type=None if ctype is None else str(ctype),
+        encoding=None if enc is None else str(enc),
+        body_text=None if text is None else str(text),
+        body_blob=blob if isinstance(blob, bytes) else b"",
+        sha256=str(sha),
+        byte_count=int(str(count)),
+        first_seen_at_utc=str(seen),
+    )
+
+
+def _fetch_event_from_row(row: tuple[object, ...]) -> FetchEvent:
+    (eid, run_id, key, method, path, params_json, fetched, status, payload_id, etag, lm, err) = row
+    params: dict[str, object] | None = None
+    if params_json is not None:
+        parsed = cast(object, json.loads(str(params_json)))
+        if isinstance(parsed, dict):
+            params = cast(dict[str, object], parsed)
+    return FetchEvent(
+        id=int(str(eid)),
+        sync_run_id=None if run_id is None else int(str(run_id)),
+        resource_key=str(key),
+        method=str(method),
+        path=str(path),
+        request_params=params,
+        fetched_at_utc=str(fetched),
+        http_status=None if status is None else int(str(status)),
+        payload_id=None if payload_id is None else int(str(payload_id)),
+        etag=None if etag is None else str(etag),
+        last_modified=None if lm is None else str(lm),
+        error_code=None if err is None else str(err),
+    )
+
+
+class ArchiveReader:
+    """Read-only access to archived payloads and fetch history.
+
+    Performs no writes, so it works on read-only and read-write connections.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def _query(self, sql: str, params: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
+        try:
+            return [tuple(r) for r in self._conn.execute(sql, params).fetchall()]
+        except sqlite3.Error as exc:
+            raise StorageError(f"Archive read failed: {exc}") from exc
+
+    def get_payload(self, payload_id: int) -> RawPayload:
+        """Return the payload with ``payload_id``; raise ``KeyError`` if absent."""
+        rows = self._query(
+            f"SELECT {_PAYLOAD_COLUMNS} FROM raw_payloads WHERE id = ?", (payload_id,)
+        )
+        if not rows:
+            raise KeyError(payload_id)
+        return _payload_from_row(rows[0])
+
+    def current_payload(self, activity_id: str, kind: str) -> RawPayload | None:
+        """Return the payload an activity resource currently points at, or ``None``."""
+        rows = self._query(
+            "SELECT current_payload_id FROM activity_resources WHERE activity_id = ? AND kind = ?",
+            (activity_id, kind),
+        )
+        if not rows or rows[0][0] is None:
+            return None
+        return self.get_payload(int(str(rows[0][0])))
+
+    def payload_versions(self, resource_key: str) -> list[RawPayload]:
+        """Return every stored version of ``resource_key`` in id order."""
+        rows = self._query(
+            f"SELECT {_PAYLOAD_COLUMNS} FROM raw_payloads WHERE resource_key = ? ORDER BY id",
+            (resource_key,),
+        )
+        return [_payload_from_row(r) for r in rows]
+
+    def resource_states(self, activity_id: str) -> dict[str, str]:
+        """Return ``{kind: state}`` for every resource row of ``activity_id``."""
+        rows = self._query(
+            "SELECT kind, state FROM activity_resources WHERE activity_id = ? ORDER BY kind",
+            (activity_id,),
+        )
+        return {str(k): str(s) for k, s in rows}
+
+    def fetch_events(self, resource_key: str) -> list[FetchEvent]:
+        """Return fetch events for ``resource_key`` in id order."""
+        rows = self._query(
+            f"SELECT {_FETCH_EVENT_COLUMNS} FROM fetch_events WHERE resource_key = ? ORDER BY id",
+            (resource_key,),
+        )
+        return [_fetch_event_from_row(r) for r in rows]
