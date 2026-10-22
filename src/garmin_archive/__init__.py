@@ -1,6 +1,13 @@
 """Local-first archive of Garmin Connect activities."""
 
 from garmin_archive._version import __version__
+from garmin_archive.archive import (
+    ArchiveReader,
+    ArchiveWriter,
+    FetchEvent,
+    RawPayload,
+    RecordResult,
+)
 from garmin_archive.client import ArchiveClient, InitResult
 from garmin_archive.config import ArchiveConfig
 from garmin_archive.models import (
@@ -19,11 +26,16 @@ __all__ = [
     "ArchiveClient",
     "ArchiveConfig",
     "ArchiveLockedError",
+    "ArchiveReader",
+    "ArchiveWriter",
     "DatabaseNotFoundError",
+    "FetchEvent",
     "GarminArchiveError",
     "InitResult",
     "MigrationChecksumError",
     "NotInitializedError",
+    "RawPayload",
+    "RecordResult",
     "SchemaVersionError",
     "StorageError",
     "__version__",
