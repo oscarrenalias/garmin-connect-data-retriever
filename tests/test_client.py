@@ -18,6 +18,10 @@ from garmin_archive import (
     NotInitializedError,
 )
 from garmin_archive.storage.lock import writer_lock
+from garmin_archive.storage.migrations import PackagedMigrations
+
+_MIGRATION_VERSIONS = [m.version for m in PackagedMigrations().load()]
+_LATEST = max(_MIGRATION_VERSIONS)
 
 
 class FixedClock:
@@ -36,8 +40,8 @@ def test_initialize_new_database(tmp_path: Path) -> None:
     assert isinstance(result, InitResult)
     assert result.db_path == path.resolve()
     assert result.created is True
-    assert result.schema_version == 1
-    assert result.applied_migrations == [1]
+    assert result.schema_version == _LATEST
+    assert result.applied_migrations == _MIGRATION_VERSIONS
     conn = sqlite3.connect(path)
     try:
         kinds = dict(
@@ -46,11 +50,11 @@ def test_initialize_new_database(tmp_path: Path) -> None:
                 "WHERE name NOT LIKE 'sqlite_%' AND type IN ('table','index') GROUP BY type"
             ).fetchall()
         )
-        assert kinds == {"table": 9, "index": 7}
+        assert kinds == {"table": 14, "index": 11}
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
-        assert conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 1
+        assert conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == _LATEST
         row = conn.execute("SELECT value_json FROM archive_metadata WHERE key='schema'").fetchone()
-        assert '"schema_version": 1' in row[0]
+        assert f'"schema_version": {_LATEST}' in row[0]
         assert '"package_version"' in row[0]
     finally:
         conn.close()
@@ -75,7 +79,7 @@ def test_second_initialize_is_noop(tmp_path: Path) -> None:
     second = client.initialize()
     assert second.created is False
     assert second.applied_migrations == []
-    assert second.schema_version == 1
+    assert second.schema_version == _LATEST
 
 
 def test_initialize_raises_when_locked(tmp_path: Path) -> None:
@@ -103,7 +107,9 @@ def test_open_existing_read_initialized(tmp_path: Path) -> None:
     client.initialize()
     conn = client._open_existing_read()  # pyright: ignore[reportPrivateUsage]
     try:
-        assert conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == len(
+            _MIGRATION_VERSIONS
+        )
         with pytest.raises(sqlite3.OperationalError):
             conn.execute("DELETE FROM schema_migrations")
     finally:
