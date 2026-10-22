@@ -135,11 +135,25 @@ def _elapsed_s(moment: Any, origin: datetime | None) -> float | None:
     return (current - origin).total_seconds()
 
 
-def sample_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _cadence(message: Mapping[str, Any], running: bool) -> tuple[float | None, str | None]:
+    cadence = _number(message.get("cadence"))
+    if cadence is None:
+        return None, None
+    if not running:
+        return cadence, "fit_rpm"
+    fractional = _number(message.get("fractional_cadence")) or 0.0
+    return (cadence + fractional) * 2, "spm"
+
+
+def sample_rows(
+    records: Sequence[Mapping[str, Any]], *, running: bool = False
+) -> list[dict[str, Any]]:
     """One row per FIT record message at native rate; no resampling or gap filling.
 
     ``elapsed_s`` is measured from the first record carrying a timestamp. Cadence is the
-    raw FIT value with ``cadence_unit`` ``fit_rpm`` and is only labelled when present.
+    raw FIT value with ``cadence_unit`` ``fit_rpm`` unless ``running``, where it is
+    ``(cadence + fractional_cadence) * 2`` steps per minute (``spm``). Missing cadence
+    leaves both cadence columns NULL.
     """
     origin: datetime | None = None
     for message in records:
@@ -149,7 +163,7 @@ def sample_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
             break
     rows: list[dict[str, Any]] = []
     for index, message in enumerate(records):
-        cadence = _number(message.get("cadence"))
+        cadence, cadence_unit = _cadence(message, running)
         rows.append(
             {
                 "sample_index": index,
@@ -159,7 +173,7 @@ def sample_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "speed_mps": _first(message, "enhanced_speed", "speed"),
                 "hr_bpm": _number(message.get("heart_rate")),
                 "cadence": cadence,
-                "cadence_unit": None if cadence is None else "fit_rpm",
+                "cadence_unit": cadence_unit,
                 "altitude_m": _first(message, "enhanced_altitude", "altitude"),
                 "latitude_deg": _degrees(message.get("position_lat")),
                 "longitude_deg": _degrees(message.get("position_long")),
