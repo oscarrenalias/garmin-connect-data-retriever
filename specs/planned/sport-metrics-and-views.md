@@ -1,16 +1,16 @@
 ---
 name: Sport metrics and views
 id: spec-2699f0ff
-description:
-dependencies:
-priority:
-complexity:
-status: draft
+description: null
+dependencies: null
+priority: null
+complexity: null
+status: planned
 tags: []
 scope:
-  in:
-  out:
-feature_root_id:
+  in: null
+  out: null
+feature_root_id: B-2ed7f86e
 ---
 # Sport metrics and views
 
