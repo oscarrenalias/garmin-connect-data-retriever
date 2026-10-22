@@ -1,0 +1,19 @@
+{
+  "documents": [
+    {
+      "file": "garmin-personal-api.openapi.json",
+      "description": "Garmin Connect Personal API OpenAPI definition, extracted verbatim from the JSON.parse string literal embedded in the swagger-docs page bundle (JS string escapes decoded; no re-serialization).",
+      "source_page_url": "https://developer.garmin.com/gc-developer-program/personal/swagger-docs/",
+      "source_bundle_url": "https://developer.garmin.com/component---src-pages-gc-developer-program-personal-swagger-docs-js-178270c98d5ec74e74ef.js",
+      "source_bundle_sha256": "8daafa393bc57724ed8afaca687027233f6c53bd9432b34443db4aed61443813",
+      "retrieved_at_utc": "2026-10-22T13:05:00Z",
+      "sha256": "dd5cfd7eee319cb2d469144e8aae7b2360baade00ce09a8c0ad86bf1f5b682c8",
+      "byte_count": 255075,
+      "openapi_version": "3.0.1",
+      "api_title": "Garmin Connect Personal API",
+      "api_version": "1.0.0",
+      "path_count": 26,
+      "notes": "Defines no securitySchemes and no token endpoint. Only the four activity endpoints in SPEC §2.2 are in scope."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+
+# takt
+.takt/worktrees/
+.takt/telemetry/
+.takt/logs/
+.takt/agent-runs/
+.takt/beads/
+
+# OS / editors
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+dist/
+build/
+*.egg-info/
+
+# Personal data — never commit
+.local/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.fit
+*.FIT
+*.zip
+*.gpx
+*.tcx
+.env
+*.key
+
+# Claude Code local settings
+.claude/settings.local.json
