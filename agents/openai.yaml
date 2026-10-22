@@ -1,0 +1,7 @@
+interface:
+  display_name: "Garmin Archive"
+  short_description: "Analyse your Garmin Connect activities with read-only SQL"
+  default_prompt: "Use $garmin-archive to answer questions about my Garmin activities (pace, heart rate, swim strokes, trends) from the local archive."
+
+policy:
+  allow_implicit_invocation: true
