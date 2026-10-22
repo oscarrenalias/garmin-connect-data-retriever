@@ -103,6 +103,9 @@ def _session_index(lap_start: Any, windows: list[tuple[datetime, datetime] | Non
     return chosen
 
 
+session_index = _session_index
+
+
 def lap_rows(
     laps: Sequence[Mapping[str, Any]], sessions: Sequence[Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
