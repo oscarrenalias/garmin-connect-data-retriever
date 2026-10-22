@@ -175,6 +175,7 @@ def original_file_key(activity_id: str) -> str:
 
 
 _ACTIVITY_ID_PATTERN = re.compile(r"[0-9]+")
+_FAILURE_STATES = (STATE_UNAVAILABLE, STATE_FORBIDDEN, STATE_FAILED)
 _T = TypeVar("_T")
 
 
@@ -394,5 +395,68 @@ class ArchiveWriter:
                     (activity_id, kind, payload_id, json_pointer, resource_state, now, now),
                 )
             return RecordResult(payload_id, fetch_event_id, is_new, sha256)
+
+        return self._run(work)
+
+    def record_failure(
+        self,
+        *,
+        resource_key: str,
+        kind: str,
+        activity_id: str | None,
+        sync_run_id: int | None,
+        method: str,
+        path: str,
+        request_params: Mapping[str, str | int | bool] | None,
+        http_status: int | None,
+        error_code: str,
+        resource_state: str,
+        next_retry_at_utc: str | None = None,
+    ) -> int:
+        """Record a failed fetch (no body stored); return the fetch event id."""
+        if resource_state not in _FAILURE_STATES:
+            raise ValueError(f"invalid failure resource_state: {resource_state!r}")
+        if kind == KIND_IMPORTED_FILE:
+            raise ValueError("imported_file failures cannot be recorded")
+        validate_resource_key(resource_key, kind, activity_id)
+        params_json = serialize_request_params(request_params)
+        now = self._now()
+
+        def work(conn: sqlite3.Connection) -> int:
+            if kind != KIND_SEARCH_PAGE:
+                row = conn.execute(
+                    "SELECT 1 FROM activity_archive WHERE activity_id = ?", (activity_id,)
+                ).fetchone()
+                if row is None:
+                    raise StorageError(f"Activity {activity_id} not found in archive")
+            fetch_event_id = conn.execute(
+                "INSERT INTO fetch_events (sync_run_id, resource_key, method, path,"
+                " request_params_json, fetched_at_utc, http_status, payload_id, etag,"
+                " last_modified, error_code) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)",
+                (
+                    sync_run_id,
+                    resource_key,
+                    method,
+                    path,
+                    params_json,
+                    now,
+                    http_status,
+                    error_code,
+                ),
+            ).lastrowid
+            assert fetch_event_id is not None
+            if kind != KIND_SEARCH_PAGE:
+                conn.execute(
+                    "INSERT INTO activity_resources (activity_id, kind, current_payload_id,"
+                    " json_pointer, state, last_attempt_at_utc, last_success_at_utc,"
+                    " next_retry_at_utc, error_code) VALUES (?, ?, NULL, NULL, ?, ?, NULL, ?, ?)"
+                    " ON CONFLICT (activity_id, kind) DO UPDATE SET"
+                    " state = excluded.state,"
+                    " last_attempt_at_utc = excluded.last_attempt_at_utc,"
+                    " next_retry_at_utc = excluded.next_retry_at_utc,"
+                    " error_code = excluded.error_code",
+                    (activity_id, kind, resource_state, now, next_retry_at_utc, error_code),
+                )
+            return fetch_event_id
 
         return self._run(work)
