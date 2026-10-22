@@ -1,16 +1,16 @@
 ---
-name: Query commands: schema, describe, sample, sql
+name: "Query commands: schema, describe, sample, sql"
 id: spec-6754bca2
-description:
-dependencies:
-priority:
-complexity:
-status: draft
+description: null
+dependencies: null
+priority: null
+complexity: null
+status: planned
 tags: []
 scope:
-  in:
-  out:
-feature_root_id:
+  in: null
+  out: null
+feature_root_id: B-df83be1c
 ---
 # Query commands: schema, describe, sample, sql
 
