@@ -5,7 +5,7 @@ description: "Python project scaffold (uv, ruff, pyright, pytest, Typer) plus a 
 dependencies: null
 priority: high
 complexity: null
-status: planned
+status: done
 tags:
 - scaffold
 - discovery
