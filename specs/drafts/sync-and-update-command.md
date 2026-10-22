@@ -42,7 +42,6 @@ Implement `garmin-archive update`. It discovers every accessible activity and ar
    - upsert each activity (ID as TEXT, parent ID, type key, owner ID)
    - link each activity to its search item
    - mark the resources that need fetching as `pending`
-   - update a checkpoint (the next offset)
 
    A crash can therefore never leave a page half-recorded or lose queued work.
 4. **What to mark pending:**
@@ -51,6 +50,7 @@ Implement `garmin-archive update`. It discovers every accessible activity and ar
    - any resource that is `failed` or has no row yet
    - with `--full`: all three resources for every activity
 5. **Stop conditions.** Detect a repeated page (the same activity IDs as the previous page) and a page ceiling (default 10,000). Stop discovery and report the inventory as **incomplete**. Duplicate IDs across pages are counted once.
+   - If a search page still fails after the page-size fallback (5xx at the minimum size, or a transport, rate-limit or contract error), stop discovery, still fetch what is pending, and report the inventory as incomplete. While shrinking the page size, use a low attempt count (e.g. 1), so each fallback step does not wait through full backoff.
 6. **Account check.** If the DB is already bound to an account and a page has items with a different `ownerId`, stop with an account-mismatch error before writing that page.
 
 ### Fetching
@@ -68,25 +68,22 @@ Implement `garmin-archive update`. It discovers every accessible activity and ar
    - **Rate limit:** stop fetching, leave the rest `pending`, and finish as partial.
    - **Auth failure:** stop and finish as failed.
 
-### Runs and resume
+### Runs
 
 10. Each invocation creates a `sync_runs` row. On exit it records status, counters and coverage.
-11. `update --resume <run_id>` continues an interrupted or partial run:
-    - It continues discovery from the checkpoint, re-fetching the boundary page, if discovery hadn't completed.
-    - It then fetches everything still pending.
-    - A `running` row left behind by a crash is marked `interrupted`.
-12. Ctrl-C sets a stop flag that is checked between pages and resources. The run ends as `interrupted` and stays resumable. The command exits 130.
+11. **No resume command.** Pending work is durable and every `update` rescans the inventory and retries `pending`/`failed` resources, so after an interrupted or partial run the user simply runs `update` again (`update --full` again for an interrupted full refresh). A `sync_runs` row left `running` by a crash is marked `interrupted` by the next run.
+12. Ctrl-C sets a stop flag that is checked between pages and resources. The run ends as `interrupted`, and the command exits 130. Running `update` again continues the work.
 
 ### Status and output
 
 13. **Status:**
     - `complete`: discovery reached the empty page, and nothing ended `failed` or `pending`. `unavailable` and `forbidden` count as known outcomes, not failures.
     - `partial` or `interrupted`: otherwise.
-    - `failed`: auth or account mismatch.
-14. **Output:** one JSON document on stdout, with progress lines on stderr. It uses the existing envelope, and the top-level `status` is the run status. It includes:
+    - `partial` or `interrupted`: otherwise.
+    - `failed`: auth failure, account mismatch, or a transport, rate-limit or contract error before anything was archived (exit 4).
     - **counters:** discovered / new / changed, resources downloaded, unchanged, unavailable, forbidden and failed
     - **coverage:** per resource kind, counts by state across the whole archive, plus the inventory status
-    - **resume info** when the run is not complete
+    - a hint to run `update` again when the run is not complete
 15. **Exit codes:**
 
     | Code | Meaning |
@@ -97,7 +94,7 @@ Implement `garmin-archive update`. It discovers every accessible activity and ar
     | 3 | auth or account failure |
     | 4 | transport, rate limit or contract failure before anything was archived |
     | 5 | storage error, missing or uninitialized DB, or the archive is locked |
-    | 2 | bad arguments, e.g. `--full` together with `--resume` |
+    | 2 | bad arguments (e.g. an unknown option) |
 
 16. **Initialization.** `update` never creates or migrates a database. It tells the user to run `garmin-archive init`. It holds the writer lock for the whole run.
 
@@ -118,13 +115,13 @@ Tests use a reusable fake Garmin API on `httpx.MockTransport` (`tests/sync/fake_
 4. **Change detection.** Changing one search item re-fetches only that activity. Activities started within 14 days are re-fetched, and identical bodies are de-duplicated.
 5. **Page-size fallback.** A fake that 500s above 30 items per page still discovers everything, and the next run starts at the stored working size. A fake that never returns more than 40 items per page, whatever the requested limit, still discovers everything.
 6. **Unavailable resources.** A file 404 ends `unavailable`, the run is still `complete`, and the next normal run doesn't re-request it. `--full` re-requests it. A summary 404 marks the activity `not_found` and deletes nothing.
-7. **Partial and resume.** A summary that keeps returning 503 ends `failed`, giving a partial run with exit 6. The next `update` retries it. A rate limit mid-fetch gives a partial run, and `--resume` completes it.
-8. **Interrupted discovery.** A run stopped after discovery page 2 keeps those pages' activities pending. `--resume` finishes discovery and fetching, and every activity is fetched exactly once.
+7. **Partial and retry.** A summary that keeps returning 503 ends `failed`, giving a partial run with exit 6. The next `update` retries it. A rate limit mid-fetch gives a partial run, and the next `update` completes the remaining work. A rate limit on the very first search page gives `failed` and exit 4.
+8. **Interrupted discovery.** A run stopped after discovery page 2 keeps those pages' activities pending. The next `update` finishes discovery and fetching, and every activity is fetched exactly once.
 9. **Account mismatch.** Summaries for another profile give exit 3, and the mismatching payload is kept.
 10. **Atomic pages.** A failure injected partway through a page's writes leaves nothing from that page in the DB.
 11. **No transaction during HTTP.** The fake transport asserts that no transaction is open on every request.
 12. **Arguments and preconditions:**
-    - `--full --resume 1` gives exit 2.
+    - An unknown option gives exit 2.
     - A missing DB gives exit 5 and creates no file.
     - A held writer lock gives exit 5.
 13. **Output hygiene.** stdout is exactly one JSON document. The fake key and token never appear in stdout, stderr, logs or the DB file.
@@ -133,6 +130,7 @@ Tests use a reusable fake Garmin API on `httpx.MockTransport` (`tests/sync/fake_
 
 - date-range sync
 - single-activity sync
+- `--resume` and discovery checkpoints (re-running `update` covers it)
 - `--retry-failed` (a normal `update` already retries failures)
 - two-stage Ctrl-C
 - concurrency above 1

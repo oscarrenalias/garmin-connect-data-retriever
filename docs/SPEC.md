@@ -150,7 +150,7 @@ Pagination is not an atomic snapshot: deduplicate overlapping pages, repeat boun
 - Compare per-item canonical JSON fingerprints for change detection, while preserving original page text. Do not hash the whole page to decide whether every activity changed.
 - Older detail-only edits may not appear in list summaries. `update --full` re-fetches all resources to reconcile these; report the last full refresh timestamp.
 - Explicit `--from`/`--to` dates limit discovery using Garmin's inclusive local-date semantics and mark the run as scoped, not an all-history refresh.
-- `--activity-id` updates one activity. `--resume <run-id>` resumes the durable queue and rechecks pagination boundaries. `--retry-failed` retries outstanding failed resources without rediscovering everything.
+- `--activity-id` updates one activity. *(v1 decision 2026-10-22: no `--resume`; pending work is durable and re-running `update` continues it.)* `--retry-failed` retries outstanding failed resources without rediscovering everything.
 
 Use a single writer lock for a database and bounded HTTP concurrency (default 1). Never hold a SQLite write transaction during a network request. Commit payload, fetch event and resource pointer atomically; advance checkpoints only after associated discovery work is durable.
 
@@ -263,7 +263,7 @@ JSON is the default and stable automation format. Human-readable formatting may 
 | --- | --- |
 | `init` | Create database and apply known migrations |
 | `auth check`, `auth status` | Credential validation and configuration status; no secret output |
-| `update` | Incremental discovery/archive/process; `--full`, `--from`, `--to`, `--activity-id`, `--resume`, `--retry-failed`, `--archive-only` |
+| `update` | Incremental discovery/archive/process; `--full` (v1). Deferred: `--from`, `--to`, `--activity-id`, `--retry-failed`, `--archive-only`; no `--resume` (re-run `update`) |
 | `reprocess` | Offline rebuild; require `--all`, `--activity-id` or `--sport`; optional `--failed-only` |
 | `list-activities` | Date/type/family/processing-state filters, deterministic order, `--limit`/`--offset` |
 | `show-activity ID` | Summary, processor version, provenance and coverage; optional bounded `--include-laps` / `--include-lengths` |
