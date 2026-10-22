@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import sqlite3
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import cast
 
-from garmin_archive.models import InvalidQueryError
+from garmin_archive.models import InvalidQueryError, QueryTimeoutError
 from garmin_archive.storage.migrations import current_schema_version
 
 
@@ -193,3 +196,75 @@ def execute_guarded(
         return conn.execute(sql, params)
     except (sqlite3.DatabaseError, sqlite3.Warning, sqlite3.ProgrammingError) as exc:
         raise InvalidQueryError(str(exc)) from exc
+
+
+DEFAULT_LIMIT = 5_000
+MAX_LIMIT = 100_000
+DEFAULT_TIMEOUT_S = 10.0
+_PROGRESS_OPS = 1000
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    """Raw outcome of :func:`run_query` (rows are unconverted SQLite values)."""
+
+    columns: list[str]
+    rows: list[tuple[object, ...]]
+    truncated: bool
+    execution_ms: int
+
+
+def run_query(
+    conn: sqlite3.Connection,
+    sql: str,
+    parameters: object = None,
+    limit: int = DEFAULT_LIMIT,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> QueryResult:
+    """Run one untrusted statement on a hardened connection with bound params.
+
+    Fetches at most ``limit`` rows (reading ``limit + 1`` to detect truncation)
+    and aborts via a progress handler once ``timeout_s`` has elapsed.
+    """
+    if parameters is None:
+        parameters = {}
+    if not isinstance(parameters, Mapping):
+        raise InvalidQueryError("Query parameters must be an object of named parameters")
+    raw_params = cast("Mapping[object, object]", parameters)
+    if not all(isinstance(k, str) for k in raw_params):
+        raise InvalidQueryError("Query parameters must be an object of named parameters")
+    params = {str(k): v for k, v in raw_params.items()}
+    if isinstance(limit, bool) or not 1 <= limit <= MAX_LIMIT:
+        raise InvalidQueryError(f"limit must be an integer between 1 and {MAX_LIMIT}")
+    if isinstance(timeout_s, bool) or not timeout_s > 0:
+        raise InvalidQueryError("timeout must be a positive number of seconds")
+
+    start = monotonic()
+    deadline = start + timeout_s
+    timed_out = False
+
+    def on_progress() -> int:
+        nonlocal timed_out
+        if monotonic() >= deadline:
+            timed_out = True
+            return 1
+        return 0
+
+    conn.set_progress_handler(on_progress, _PROGRESS_OPS)
+    try:
+        cursor = conn.execute(sql, params)
+        columns = [str(d[0]) for d in cursor.description or ()]
+        fetched = cursor.fetchmany(limit + 1)
+    except sqlite3.OperationalError as exc:
+        if timed_out and "interrupt" in str(exc).lower():
+            raise QueryTimeoutError(f"Query exceeded {timeout_s:g}s timeout") from exc
+        raise InvalidQueryError(str(exc)) from exc
+    except (sqlite3.Error, sqlite3.Warning) as exc:
+        raise InvalidQueryError(str(exc)) from exc
+    finally:
+        conn.set_progress_handler(None, 0)
+
+    truncated = len(fetched) > limit
+    rows = [tuple(r) for r in fetched[:limit]]
+    return QueryResult(columns, rows, truncated, int((monotonic() - start) * 1000))
