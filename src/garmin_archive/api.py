@@ -228,3 +228,18 @@ class GarminApiClient:
     def download_original_file(self, activity_id: str) -> ApiResponse:
         """GET the original activity file (typically a ZIP); bytes are returned untouched."""
         return self._request("GET", f"/download-service/files/activity/{activity_id}")
+
+
+@dataclass(frozen=True)
+class AuthCheckResult:
+    """Outcome of a successful credential check."""
+
+    token_obtained: bool
+    search_status: int
+
+
+def check_auth(client: GarminApiClient) -> AuthCheckResult:
+    """Obtain a token and run one ``limit=1`` search; raises on any failure."""
+    client._fetch_token()  # pyright: ignore[reportPrivateUsage]
+    response = client.search_activities(0, 1)
+    return AuthCheckResult(token_obtained=True, search_status=response.status)
