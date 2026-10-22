@@ -1,16 +1,16 @@
 ---
-name: Activity processing: sports and common tables
+name: "Activity processing: sports and common tables"
 id: spec-939594b5
-description:
-dependencies:
-priority:
-complexity:
-status: draft
+description: null
+dependencies: null
+priority: null
+complexity: null
+status: planned
 tags: []
 scope:
-  in:
-  out:
-feature_root_id:
+  in: null
+  out: null
+feature_root_id: B-97ab5d52
 ---
 # Activity processing: sports and common tables
 
