@@ -43,6 +43,7 @@ output never include the key, tokens or exception messages.
 | `--env-file PATH` | none | dotenv file holding the API key |
 | `--token-field NAME` | auto-detect | field of the token response that holds the token |
 | `--page-size N` | 99 | page size for the activity inventory |
+| `--min-page-size N` | 10 | smallest page size adaptive reduction falls back to when the search endpoint returns 5xx |
 | `--max-pages N` | 500 | maximum inventory pages to fetch |
 | `--activity-id ID` | none | explicit activity to sample (repeatable) |
 | `--per-category N` | 2 | samples per category |

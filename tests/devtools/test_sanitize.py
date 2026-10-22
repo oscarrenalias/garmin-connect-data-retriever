@@ -182,3 +182,29 @@ def test_leak_in_dict_key_located() -> None:
 
 def test_clean_text_no_hits() -> None:
     assert check_leaks('{"a": 1}', {"SecretName"}) == []
+
+
+def test_exercise_name_kept_and_no_false_positive_on_split_type() -> None:
+    ctx = make_ctx()
+    workouts = {
+        "workoutName": "Tempo Tuesday",
+        "workoutSegments": [
+            {"workoutSteps": [{"stepName": "Warm Up Jog", "exerciseName": "WALK"}]}
+        ],
+    }
+    summaries = {"splitSummaries": [{"splitType": "RWD_WALK"}, {"splitType": "INTERVAL_WALK"}]}
+    out_w = sanitize(workouts, ctx, source="workouts")
+    out_s = sanitize(summaries, ctx, source="summaries")
+    step = out_w["workoutSegments"][0]["workoutSteps"][0]
+    assert step["exerciseName"] == "WALK"
+    assert step["stepName"] == REDACTED
+    assert out_w["workoutName"] == REDACTED
+    assert check_leaks(json.dumps(out_s), sensitive_set(ctx, "summaries")) == []
+    assert check_leaks(json.dumps(out_w), sensitive_set(ctx, "workouts")) == []
+
+
+def test_planted_activity_name_still_leaks_with_exercise_name_present() -> None:
+    ctx = make_ctx()
+    sanitize({"activityName": "Morning Run with Bob", "exerciseName": "WALK"}, ctx, source="a")
+    hits = check_leaks(json.dumps({"x": "Morning Run with Bob"}), sensitive_set(ctx, "b"))
+    assert [h.json_path for h in hits] == ["$.x"]

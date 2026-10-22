@@ -300,3 +300,22 @@ def test_transport_errors_are_logged(tmp_path: Path) -> None:
     assert entries[0]["error"] == "ConnectError"
     assert entries[0]["status"] is None
     assert "secret-url" not in recorder.requests_path.read_text()
+
+
+def test_server_error_pages_counted_during_reduction(tmp_path: Path) -> None:
+    server = CapServer([act(i, f"2024-01-01 08:{i // 60:02d}:{i % 60:02d}") for i in range(60)], 30)
+    result = run(server, tmp_path)
+    assert result.inventory_status == "complete"
+    assert result.pagination["server_error_pages"] == 2  # 99 and 49 failed, 24 succeeded
+
+
+def test_server_error_pages_zero_without_errors(tmp_path: Path) -> None:
+    result = run(Server([act(i) for i in range(1, 8)]), tmp_path, page_size=3)
+    assert result.pagination["server_error_pages"] == 0
+
+
+def test_min_page_size_bounds_reduction(tmp_path: Path) -> None:
+    server = CapServer([act(i) for i in range(1, 8)], 0)
+    result = run(server, tmp_path, page_size=40, min_page_size=20)
+    assert result.pagination["page_size_effective"] == 20
+    assert result.pagination["server_error_pages"] >= 1

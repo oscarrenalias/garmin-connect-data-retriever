@@ -192,6 +192,7 @@ def run_inventory(
     note: str | None = None
     size = page_size
     reductions: list[dict[str, int]] = []
+    server_error_pages = 0
 
     while True:
         if len(pages) >= max_pages:
@@ -211,6 +212,12 @@ def run_inventory(
         response, items = _fetch(
             http, recorder, token, label, params, max_retries=0 if shrinkable else None
         )
+        if (
+            isinstance(response, RetriesExhausted)
+            and response.last_status is not None
+            and response.last_status >= 500
+        ):
+            server_error_pages += 1
         if isinstance(response, RetriesExhausted) and shrinkable:
             new_size = max(size // 2, min_page_size)
             reductions.append({"from": size, "to": new_size, "start": start})
@@ -288,6 +295,7 @@ def run_inventory(
         "page_size_effective": size,
         "page_size_reductions": reductions,
         "page_size_reduction_count": len(reductions),
+        "server_error_pages": server_error_pages,
         "pages": pages,
         "duplicate_id_count": duplicates,
         "same_start_time_count": _same_start_time_count(distinct),

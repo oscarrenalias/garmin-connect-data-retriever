@@ -443,3 +443,24 @@ def test_raw_body_token_run_completes_without_leaking_token(tmp_path: Path) -> N
         _all_files(runner.fixtures),
         {"progress": "\n".join(runner.progress)},
     )
+
+
+def test_min_page_size_option_reaches_inventory(tmp_path: Path) -> None:
+    from garmin_archive.devtools.discovery.capture import CaptureOptions as Opts
+
+    seen: list[Opts] = []
+
+    def fake_capture(options: Opts, deps: Any) -> CaptureResult:
+        seen.append(options)
+        raise RuntimeError("stop")
+
+    deps = MainDeps(
+        environ={"GARMIN_API_KEY": API_KEY},
+        cwd=tmp_path,
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        capture=fake_capture,
+    )
+    main(["capture", "--min-page-size", "25"], deps)
+    main(["capture"], deps)
+    assert [o.min_page_size for o in seen] == [25, 10]

@@ -28,6 +28,9 @@ CATALOG_KEYS = frozenset(
         "fileFormat",
     }
 )
+# Catalog enum keys that match the free-text name regex but hold Garmin catalog values
+# (for example exerciseName "WALK"); kept verbatim and counted as pass-through values.
+CATALOG_NAME_KEYS = frozenset({"exerciseName"})
 EXPLICIT_ID_KEYS = frozenset(
     {
         "activityId",
@@ -154,7 +157,7 @@ def _walk(
         for raw_key, v in cast("dict[Any, Any]", value).items():
             k = str(raw_key)
             child = f"{path}.{k}"
-            if k in CATALOG_KEYS:
+            if k in CATALOG_KEYS or (k in CATALOG_NAME_KEYS and isinstance(v, str)):
                 _note_all(v, ctx, source)
                 out[k] = v
                 continue

@@ -30,6 +30,7 @@ from garmin_archive.devtools.discovery.http import DiscoveryHttp, RunPartial
 from garmin_archive.devtools.discovery.inventory import (
     DEFAULT_MAX_PAGES,
     DEFAULT_PAGE_SIZE,
+    MIN_PAGE_SIZE,
     InventoryResult,
     run_inventory,
 )
@@ -76,6 +77,7 @@ class CaptureOptions:
     delay: float = 1.0
     max_pages: int = DEFAULT_MAX_PAGES
     page_size: int = DEFAULT_PAGE_SIZE
+    min_page_size: int = MIN_PAGE_SIZE
 
 
 @dataclass
@@ -195,6 +197,7 @@ def run_capture(options: CaptureOptions, deps: CaptureDeps) -> CaptureResult:
                     token,
                     page_size=options.page_size,
                     max_pages=options.max_pages,
+                    min_page_size=options.min_page_size,
                 )
                 if inv.partial:
                     outcome = "partial"
