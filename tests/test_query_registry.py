@@ -69,6 +69,9 @@ def test_views_reference_only_registry_objects(conn: sqlite3.Connection) -> None
         assert name in names
         refs = set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_]\w*)", sql, flags=re.IGNORECASE))
         assert refs
+        ctes = set(re.findall(r"\b(?:WITH|,)\s+([A-Za-z_]\w*)\s+AS\s*\(", sql, flags=re.IGNORECASE))
+        refs -= ctes  # a CTE name is a local alias, not a schema object
+        assert refs
         assert refs <= all_objects
         assert refs <= names, f"{name} reads unregistered {refs - names}"
 
@@ -108,3 +111,27 @@ def test_quote_identifier() -> None:
     assert quote_identifier('a"b') == '"a""b"'
     with pytest.raises(InvalidQueryError):
         quote_identifier("a\x00b")
+
+
+def test_form_tables_registered_and_queryable(conn: sqlite3.Connection) -> None:
+    for name in ("form_sessions", "form_lengths"):
+        assert lookup(conn, name).kind == "table"
+        assert conn.execute(f"SELECT * FROM {quote_identifier(name)} LIMIT 0").fetchall() == []
+
+
+def test_form_schema_notes_verbatim(conn: sqlite3.Connection) -> None:
+    swim = (
+        "Pool swims prefer FORM goggle data when available (`data_source`); Garmin originals "
+        "are in `garmin_*`. HR, calories and training metrics are always Garmin."
+    )
+    summary = (
+        "Garmin values for Garmin activities, even when FORM data exists, so swim totals here "
+        "can differ from v_swimming; rows with `data_source = 'form'` are goggle-only swims."
+    )
+    assert swim in lookup(conn, "v_swimming").notes
+    assert swim in lookup(conn, "v_swim_lengths").notes
+    assert summary in lookup(conn, "v_activity_summary").notes
+    assert (
+        lookup(conn, "form_sessions").description
+        == "FORM-recorded sessions and their match to a Garmin swim."
+    )

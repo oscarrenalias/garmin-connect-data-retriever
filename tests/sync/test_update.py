@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from garmin_fit_sdk import Encoder
 
 from garmin_archive import cli as cli_module
 from garmin_archive.api import DEFAULT_MAX_ATTEMPTS, GarminApiClient
@@ -221,6 +222,34 @@ def test_first_run_archives_everything(
     assert json.loads(counters_json)["downloaded"] == 750
     assert json.loads(coverage_json)["inventory"] == "complete"
     _assert_no_secrets(fake, archive, result.out, result.err, caplog.text)
+
+
+def test_update_rebuilds_form_rows_after_processing(archive: Archive, tmp_path: Path) -> None:
+    encoder = Encoder()
+    encoder.write_mesg({"mesg_num": 0, "type": "activity", "manufacturer": "form", "product": 0})
+    encoder.write_mesg(
+        {
+            "mesg_num": 18,
+            "start_time": T0,
+            "sport": "swimming",
+            "sub_sport": "lap_swimming",
+            "pool_length": 25.0,
+            "pool_length_unit": "metric",
+            "total_timer_time": 60.0,
+            "total_elapsed_time": 60.0,
+        }
+    )
+    fit = tmp_path / "form.fit"
+    fit.write_bytes(encoder.close())
+    with ArchiveClient(ArchiveConfig(db_path=archive.path), clock=archive.clock) as client:
+        client.import_form(paths=[fit])
+    assert archive.scalar("SELECT COUNT(*) FROM form_sessions") == 1
+    with closing(archive.connect()) as conn:
+        conn.execute("DELETE FROM form_sessions")
+        conn.commit()
+
+    assert archive.update(FakeGarmin(10)).status == "complete"
+    assert archive.scalar("SELECT COUNT(*) FROM form_sessions") == 1
 
 
 # ---- 3. second unchanged run -----------------------------------------------------------

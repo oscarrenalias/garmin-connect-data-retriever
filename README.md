@@ -34,6 +34,7 @@ The database defaults to your platform's data directory. Override it with `GARMI
 uv run garmin-archive update            # incremental sync and processing; the first run takes a few minutes
 uv run garmin-archive update --full     # re-download everything
 uv run garmin-archive reprocess         # rebuild analysis tables offline
+uv run garmin-archive import-form FILE  # import FORM goggles swims (or --url LINK); no credentials needed
 
 uv run garmin-archive schema            # tables and views, with grain, columns and notes
 uv run garmin-archive describe v_running

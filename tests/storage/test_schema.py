@@ -30,6 +30,8 @@ EXPECTED_TABLES = {
     "cycling_metrics",
     "cardio_metrics",
     "swim_lengths",
+    "form_sessions",
+    "form_lengths",
 }
 EXPECTED_INDEXES = {
     "idx_raw_payloads_activity_kind",
@@ -115,3 +117,18 @@ def test_activity_resource_requires_existing_activity(conn: sqlite3.Connection) 
             "INSERT INTO activity_resources (activity_id, kind, state)"
             " VALUES ('missing', 'summary', 'pending')"
         )
+
+
+def test_form_lengths_columns_match_swim_lengths(conn: sqlite3.Connection) -> None:
+    def cols(table: str) -> set[str]:
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+    swim = cols("swim_lengths") - {"activity_id", "processing_run_id"}
+    form = cols("form_lengths") - {"form_session_id"}
+    assert swim == form
+
+
+def test_form_tables_store_no_serial(conn: sqlite3.Connection) -> None:
+    for table in ("form_sessions", "form_lengths"):
+        names = [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]
+        assert not any("serial" in n for n in names)

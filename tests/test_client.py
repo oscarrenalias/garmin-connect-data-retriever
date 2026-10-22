@@ -52,7 +52,7 @@ def test_initialize_new_database(tmp_path: Path) -> None:
                 "WHERE name NOT LIKE 'sqlite_%' AND type IN ('table','index') GROUP BY type"
             ).fetchall()
         )
-        assert kinds == {"table": 19, "index": 11}
+        assert kinds == {"table": 21, "index": 11}
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == _LATEST
         row = conn.execute("SELECT value_json FROM archive_metadata WHERE key='schema'").fetchone()
