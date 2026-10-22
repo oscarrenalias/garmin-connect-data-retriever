@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Mapping
@@ -77,6 +78,44 @@ def serialize_request_params(params: Mapping[str, str | int | bool] | None) -> s
         if _SENSITIVE_PARAM_KEY.search(name):
             raise ValueError(f"request param name {name!r} looks like a credential")
     return json.dumps(params, sort_keys=True, separators=(",", ":"))
+
+
+def _is_text_media_type(media_type: str) -> bool:
+    return (
+        media_type == "application/json"
+        or media_type.startswith("text/")
+        or (media_type.endswith("+json") and "/" in media_type)
+    )
+
+
+def _derive_body_text(content_type: str | None, body: bytes) -> tuple[str | None, str | None]:
+    """Return ``(body_text, encoding)`` for a response body.
+
+    Only JSON and ``text/*`` media types are decoded. Undecodable bodies and
+    unknown charsets yield ``(None, None)``. The body is never parsed as JSON.
+    """
+    if not content_type:
+        return None, None
+    media_type, *params = content_type.split(";")
+    if not _is_text_media_type(media_type.strip().lower()):
+        return None, None
+    charset = "utf-8"
+    for param in params:
+        name, sep, value = param.partition("=")
+        if sep and name.strip().lower() == "charset":
+            value = value.strip().strip('"').strip()
+            if value:
+                charset = value.lower()
+            break
+    try:
+        return body.decode(charset), charset
+    except (UnicodeDecodeError, LookupError):
+        return None, None
+
+
+def _sha256_and_size(body: bytes) -> tuple[str, int]:
+    """Return the lowercase hex SHA-256 digest and byte count of ``body``."""
+    return hashlib.sha256(body).hexdigest(), len(body)
 
 
 def validate_resource_key(resource_key: str, kind: str, activity_id: str | None) -> None:
