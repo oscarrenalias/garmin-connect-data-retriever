@@ -88,11 +88,11 @@ All behavior must be callable through the library. CLI code must not contain aut
 
 ## 4. Credentials and authorization
 
-Credential lookup: explicit library credential provider, then the `GARMIN_API_KEY` (or `GARMIN_CONNECT_API_KEY`) environment variable, then the same variable names in a `.env` file (the current directory's `.env`, or `--env-file PATH`). The application never stores the key: there is no OS keyring integration, no key file written by the application, and no `auth configure` command. The key is never accepted as a command-line argument. *(Decision 2026-10-22: the user rejected keyring and persisted-credential storage.)*
+Credential lookup: the `GARMIN_API_KEY` (or `GARMIN_CONNECT_API_KEY`) environment variable, then the same variable names in a `.env` file (the current directory's `.env`, or `--env-file PATH`). The application never stores the key: there is no OS keyring integration, no key file written by the application, and no `auth configure` command. The key is never accepted as a command-line argument. *(Decision 2026-10-22: the user rejected keyring and persisted-credential storage.)*
 
 - Never persist keys, tokens, token endpoint responses or Authorization headers in the activity database, logs, fixtures or CLI output.
 - Acquire a fresh access token on each CLI invocation and hold it in memory only for that process's lifetime. Tokens are **never persisted** anywhere. Within a process, bind the cached token to the credential identity and invalidate it on rotation.
-- Refresh shortly before known expiry (60-second margin). If expiry metadata is absent, use a conservative cache lifetime and handle a 401; do not assume an opaque token is a JWT.
+- Hold one token per process, with no expiry tracking. Tokens last 24 h, which covers any run. On a data-call 401, renew once.
 - On data-request 401, obtain a fresh token and retry once. A second 401 stops with `AUTH_FAILED`. Do not renew indefinitely.
 - A 403 is an authorization/resource failure, not a token-refresh loop. Surface it with the affected resource.
 - Network calls have bounded connect/read timeouts. Never forward credentials to a different host through redirects.
