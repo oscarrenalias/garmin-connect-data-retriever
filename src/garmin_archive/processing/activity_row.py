@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeVar, cast
 
 from garmin_archive.processing.sports import sport_family
+
+_T = TypeVar("_T")
 
 # (row column, summaryDTO key, search item key)
 _NUMERIC_FIELDS: tuple[tuple[str, str, str], ...] = (
@@ -33,7 +35,9 @@ _NUMERIC_FIELDS: tuple[tuple[str, str, str], ...] = (
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+    if isinstance(value, Mapping):
+        return cast("Mapping[str, Any]", value)
+    return {}
 
 
 def _number(value: Any) -> float | int | None:
@@ -73,7 +77,7 @@ def _format(parsed: datetime) -> str:
     return text
 
 
-def _first[T](*values: T | None) -> T | None:
+def _first(*values: _T | None) -> _T | None:
     for value in values:
         if value is not None:
             return value
