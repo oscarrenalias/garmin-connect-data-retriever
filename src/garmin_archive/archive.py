@@ -1,4 +1,4 @@
-"""Archive resource keys and schema enum constants (SPEC §5.2)."""
+"""Raw archive resource keys, schema enum constants, writer and reader (SPEC §5.1, §5.2, §6.2)."""
 
 from __future__ import annotations
 
@@ -163,14 +163,17 @@ def search_page_key(params: Mapping[str, str | int | bool]) -> str:
 
 
 def summary_key(activity_id: str) -> str:
+    """Build the ``summary:<activity_id>`` resource key."""
     return f"{KIND_SUMMARY}:{activity_id}"
 
 
 def workouts_key(activity_id: str) -> str:
+    """Build the ``workouts:<activity_id>`` resource key."""
     return f"{KIND_WORKOUTS}:{activity_id}"
 
 
 def original_file_key(activity_id: str) -> str:
+    """Build the ``original_file:<activity_id>`` resource key."""
     return f"{KIND_ORIGINAL_FILE}:{activity_id}"
 
 
@@ -239,7 +242,11 @@ class ArchiveWriter:
         type_key: str | None,
         availability_status: str = AVAILABILITY_LISTED,
     ) -> bool:
-        """Insert or update an activity row; return ``True`` when inserted."""
+        """Insert or update an activity row; return ``True`` when inserted.
+
+        ``first_seen_at_utc`` is set on insert only; ``last_seen_at_utc`` is refreshed on
+        every call. Raises ``ValueError`` for a non-digit id or unknown availability status.
+        """
         _validate_activity_id(activity_id)
         _validate_availability(availability_status)
         now = self._now()
@@ -319,7 +326,15 @@ class ArchiveWriter:
         resource_state: str = STATE_AVAILABLE,
         json_pointer: str | None = None,
     ) -> RecordResult:
-        """Store a response body (deduplicated) and its fetch event atomically."""
+        """Store a response body (deduplicated) and its fetch event atomically.
+
+        The body is stored byte-for-byte; an identical ``(resource_key, sha256)`` reuses the
+        existing payload row (``is_new_payload=False``), while changed content adds a new
+        version. A fetch event is always appended and, for activity-scoped kinds, the
+        ``activity_resources`` row is pointed at the payload. Raises ``ValueError`` for
+        invalid keys, kinds, states or credential-like request params (before any write)
+        and ``StorageError`` if the activity is not archived.
+        """
         if kind == KIND_IMPORTED_FILE:
             raise ValueError("imported_file payloads cannot be recorded")
         _validate_resource_state(resource_state)
@@ -414,7 +429,12 @@ class ArchiveWriter:
         resource_state: str,
         next_retry_at_utc: str | None = None,
     ) -> int:
-        """Record a failed fetch (no body stored); return the fetch event id."""
+        """Record a failed fetch (no body stored); return the fetch event id.
+
+        Appends a fetch event with ``error_code`` and updates the resource state
+        (``unavailable``, ``forbidden`` or ``failed``) and retry time. Previously archived
+        payloads and ``current_payload_id`` are left untouched.
+        """
         if resource_state not in _FAILURE_STATES:
             raise ValueError(f"invalid failure resource_state: {resource_state!r}")
         if kind == KIND_IMPORTED_FILE:
