@@ -5,24 +5,42 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Protocol, cast
 
-from garmin_archive.api import ApiResponse, search_params
+from garmin_archive.api import SEARCH_PATH, ApiResponse, search_params
+from garmin_archive.archive import (
+    KIND_ORIGINAL_FILE,
+    KIND_SEARCH_PAGE,
+    KIND_SUMMARY,
+    KIND_WORKOUTS,
+    STATE_FAILED,
+    ArchiveReader,
+    ArchiveWriter,
+    canonical_json_hash,
+    search_page_key,
+)
 from garmin_archive.models import (
+    AccountMismatchError,
     ApiTransportError,
+    Clock,
     ContractError,
     GarminArchiveError,
     RateLimitError,
     TransportError,
 )
 from garmin_archive.storage.connection import transaction
-from garmin_archive.storage.metadata import get_metadata, set_metadata
+from garmin_archive.storage.metadata import get_account_binding, get_metadata, set_metadata
+from garmin_archive.sync.runs import SyncCounters
 
 PAGE_SIZE_KEY = "search_page_size"
 DEFAULT_PAGE_SIZE = 49
 MIN_PAGE_SIZE = 10
 DEFAULT_PAGE_CEILING = 10_000
+
+RECENT_WINDOW = timedelta(days=14)
+_FETCH_KINDS: tuple[str, ...] = (KIND_SUMMARY, KIND_WORKOUTS, KIND_ORIGINAL_FILE)
 
 REASON_REPEATED_PAGE = "repeated_page"
 REASON_PAGE_CEILING = "page_ceiling"
@@ -145,3 +163,113 @@ def discover_activities(
         previous_ids = ids
         shrinking = False
         start += len(items)
+
+
+def _parse_utc_start(value: object) -> datetime | None:
+    """Parse an offset-free ``startTimeGMT`` as UTC; ``None`` when absent or malformed."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _text_or_none(value: object) -> str | None:
+    if value is None or isinstance(value, bool):
+        return None
+    return str(value)
+
+
+def _item_type_key(item: Mapping[str, object]) -> str | None:
+    activity_type = item.get("activityType")
+    if isinstance(activity_type, dict):
+        return _text_or_none(cast("dict[str, object]", activity_type).get("typeKey"))
+    return None
+
+
+@dataclass
+class PageRecorder:
+    """Page callback: records one search page atomically and queues resources to fetch."""
+
+    conn: sqlite3.Connection
+    writer: ArchiveWriter
+    reader: ArchiveReader
+    clock: Clock
+    counters: SyncCounters
+    sync_run_id: int | None = None
+    full: bool = False
+    seen_ids: set[str] = field(default_factory=lambda: set[str]())
+
+    def __call__(
+        self,
+        response: ApiResponse,
+        params: Mapping[str, str],
+        items: list[dict[str, object]],
+    ) -> None:
+        self._check_account(items)
+        discovered = new = changed = 0
+        newly_seen: set[str] = set()
+        threshold = self.clock.now().astimezone(UTC) - RECENT_WINDOW
+        with self.writer.batch():
+            result = self.writer.record_response(
+                resource_key=search_page_key(params),
+                kind=KIND_SEARCH_PAGE,
+                activity_id=None,
+                sync_run_id=self.sync_run_id,
+                method="GET",
+                path=SEARCH_PATH,
+                request_params=params,
+                http_status=response.status,
+                content_type=response.content_type,
+                body=response.body,
+            )
+            for index, item in enumerate(items):
+                activity_id = str(item["activityId"])
+                first_on_run = activity_id not in self.seen_ids and activity_id not in newly_seen
+                prior_hash = self.reader.prior_search_item_hash(activity_id)
+                inserted = self.writer.upsert_activity(
+                    activity_id=activity_id,
+                    owner_profile_id=_text_or_none(item.get("ownerId")),
+                    parent_activity_id=_text_or_none(item.get("parentId")),
+                    type_key=_item_type_key(item),
+                )
+                is_changed = prior_hash is not None and prior_hash != canonical_json_hash(item)
+                self.writer.record_search_item(
+                    activity_id=activity_id,
+                    search_page_payload_id=result.payload_id,
+                    json_pointer=f"/{index}",
+                )
+                start = _parse_utc_start(item.get("startTimeGMT"))
+                recent = start is not None and start >= threshold
+                if self.full or inserted or is_changed or recent:
+                    kinds = _FETCH_KINDS
+                else:
+                    states = self.reader.resource_states(activity_id)
+                    kinds = tuple(
+                        k for k in _FETCH_KINDS if states.get(k, STATE_FAILED) == STATE_FAILED
+                    )
+                if kinds:
+                    self.writer.mark_pending(activity_id=activity_id, kinds=kinds)
+                if first_on_run:
+                    newly_seen.add(activity_id)
+                    discovered += 1
+                    new += inserted
+                    changed += is_changed
+        # Only reached once the page transaction committed.
+        self.seen_ids |= newly_seen
+        self.counters.discovered += discovered
+        self.counters.new += new
+        self.counters.changed += changed
+
+    def _check_account(self, items: list[dict[str, object]]) -> None:
+        bound = get_account_binding(self.conn)
+        if bound is None:
+            return
+        for item in items:
+            owner = _text_or_none(item.get("ownerId"))
+            if owner is not None and owner != bound:
+                raise AccountMismatchError("Search page belongs to a different Garmin account")
