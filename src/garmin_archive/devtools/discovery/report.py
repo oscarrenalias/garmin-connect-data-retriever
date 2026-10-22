@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 REPORT_VERSION = 1
 STATUS_CONFIRMED = "confirmed"
@@ -225,6 +225,19 @@ def _section_lines(title: str, data: Mapping[str, Any] | None) -> list[str]:
     return [*lines, ""]
 
 
+def _reduction_lines(pagination: Mapping[str, Any] | None) -> list[str]:
+    reductions = (pagination or {}).get("page_size_reductions")
+    if not isinstance(reductions, list) or not reductions:
+        return []
+    first = cast("Mapping[str, Any]", cast("list[object]", reductions)[0])
+    effective = (pagination or {}).get("page_size_effective")
+    return [
+        f"Server returned 5xx for pages of {_cell(first.get('from'))}; "
+        f"effective page size {_cell(effective)}.",
+        "",
+    ]
+
+
 def render_markdown(report: Mapping[str, Any]) -> str:
     """Render a built report as `contract-report.md`. Only report data is used."""
     out: list[str] = [
@@ -255,6 +268,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         ("Inventory counts", "inventory"),
     ):
         out.extend(_section_lines(title, report.get(key)))
+        if key == "pagination":
+            out.extend(_reduction_lines(report.get(key)))
     out.extend(["## Samples", ""])
     out.extend(_rows_lines(report.get("samples") or []))
     out.append("")

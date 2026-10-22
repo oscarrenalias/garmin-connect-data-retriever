@@ -125,7 +125,7 @@ def _inventory_sections(inv: InventoryResult) -> dict[str, dict[str, Any]]:
     probes: list[dict[str, Any]] = []
     for p in inv.cap_probes:
         probe: dict[str, Any] = {"requested": p["limit"], "returned": p.get("item_count")}
-        for key in ("http_status", "error"):
+        for key in ("http_status", "error", "note"):
             if key in p:
                 probe[key] = p[key]
         probes.append(probe)

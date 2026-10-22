@@ -80,6 +80,7 @@ class RetriesExhausted:
     attempts: int
     error: str
     last_status: int | None = None
+    elapsed_ms: int = 0
 
 
 @dataclass
@@ -185,9 +186,15 @@ class DiscoveryHttp:
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
         data: Mapping[str, str] | None = None,
+        max_retries: int | None = None,
     ) -> HttpResponse | RetriesExhausted:
-        """Perform one logical request (with retries). Raises RunPartial on 429 stop."""
+        """Perform one logical request (with retries). Raises RunPartial on 429 stop.
+
+        `max_retries` caps the 5xx/transport retries (default: the full backoff schedule).
+        """
         self._pace()
+        retry_limit = len(BACKOFF_SECONDS) if max_retries is None else max_retries
+        first_started = self._clock()
         attempts = 0
         retries_5xx = 0
         retried_429 = False
@@ -236,8 +243,13 @@ class DiscoveryHttp:
                         )
                     last_error = f"HTTP {status}"
                     last_status = status
-                if retries_5xx >= len(BACKOFF_SECONDS):
-                    return RetriesExhausted(attempts, last_error, last_status)
+                if retries_5xx >= retry_limit:
+                    return RetriesExhausted(
+                        attempts,
+                        last_error,
+                        last_status,
+                        int((self._clock() - first_started).total_seconds() * 1000),
+                    )
                 self._sleep(BACKOFF_SECONDS[retries_5xx])
                 retries_5xx += 1
         finally:
@@ -249,5 +261,6 @@ class DiscoveryHttp:
         *,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
+        max_retries: int | None = None,
     ) -> HttpResponse | RetriesExhausted:
-        return self.request("GET", path, params=params, headers=headers)
+        return self.request("GET", path, params=params, headers=headers, max_retries=max_retries)
