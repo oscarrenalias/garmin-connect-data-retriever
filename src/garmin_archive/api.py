@@ -51,6 +51,10 @@ class GarminApiClient:
         sleep: Callable[[float], None] = time.sleep,
         base_url: str = BASE_URL,
     ) -> None:
+        """Create a client; ``http_client`` and ``sleep`` are injectable for tests.
+
+        The key and the token it yields are held in memory only.
+        """
         self._api_key = api_key
         self._http = http_client if http_client is not None else default_http_client()
         self._sleep = sleep
