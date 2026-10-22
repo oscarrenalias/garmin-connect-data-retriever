@@ -44,6 +44,9 @@ are known outcomes, not failures. Nothing already archived is ever deleted.
 **Ctrl-C** stops the run cleanly between pages and resources. It is recorded as
 `interrupted`, the JSON report is still written and the exit code is 130.
 
+The top-level envelope `status` is the run status: `ok` for a complete run, `partial` (exit 6)
+or `interrupted` (exit 130), or the error envelope for a failed run.
+
 Output `data` fields:
 
 | Field | Meaning |

@@ -22,10 +22,10 @@ except ImportError:  # typer >= 0.27 vendors click and no longer depends on it
 OUTPUT_VERSION = 1
 
 
-def success(data: Any, *, warnings: list[Any] | None = None) -> dict[str, Any]:
+def success(data: Any, *, warnings: list[Any] | None = None, status: str = "ok") -> dict[str, Any]:
     """Build a success envelope; ``warnings`` is included only when non-empty."""
     document: dict[str, Any] = {
-        "status": "ok",
+        "status": status,
         "data": data,
         "meta": {"output_version": OUTPUT_VERSION},
     }

@@ -389,6 +389,7 @@ def test_persistent_503_is_partial_exit_6_then_retried(
     fake.fail("summary", target, status=503)
     first = cli(archive, fake)
     assert first.code == 6
+    assert first.doc["status"] == "partial"
     data = first.doc["data"]
     assert data["status"] == "partial"
     assert data["counters"]["failed"] == 1
@@ -400,6 +401,7 @@ def test_persistent_503_is_partial_exit_6_then_retried(
     fake.reset_counts()
     second = cli(archive, fake)
     assert second.code == 0
+    assert second.doc["status"] == "ok"
     assert second.doc["data"]["status"] == "complete"
     assert second.doc["data"]["hint"] is None
     assert fake.count_for("summary", target) == 1
@@ -499,6 +501,7 @@ def test_sigint_exits_130_restores_handler_and_next_run_continues(
     before = signal.getsignal(signal.SIGINT)
     first = cli(archive, fake)
     assert first.code == 130
+    assert first.doc["status"] == "interrupted"
     assert first.doc["data"]["status"] == "interrupted"
     assert signal.getsignal(signal.SIGINT) is before
     assert archive.last_run()[0] == "interrupted"

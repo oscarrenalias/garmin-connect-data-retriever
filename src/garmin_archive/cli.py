@@ -141,7 +141,8 @@ def update(
     finally:
         if installed:
             signal.signal(signal.SIGINT, previous)
-    emit(success(result.to_dict()), sys.stdout)
+    envelope_status = "ok" if result.status == "complete" else result.status
+    emit(success(result.to_dict(), status=envelope_status), sys.stdout)
     return exit_code_for_run_status(result.status)
 
 
