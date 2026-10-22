@@ -62,7 +62,7 @@ uv run garmin-archive auth check                      # get a token and make one
 
 When the user forwards a FORM export email or link, run `garmin-archive import-form --url '<link>'`. For attachments, run `garmin-archive import-form <file>`. **Never repeat the link back to the user**, and never write it into files or notes: it is a pre-signed download URL. Exit codes: 0 done, 2 nothing valid, 4 download failed, 6 partial.
 
-Matched pool swims in `v_swimming` and `v_swim_lengths` take swim totals and lengths from FORM (`data_source = 'form'`). The watch values stay in the `garmin_*` columns, and HR and training metrics stay Garmin. Open-water swims stay Garmin. Mention the `data_source` when comparing swims.
+Matched pool swims in `v_swimming` and `v_swim_lengths` take swim totals and lengths from FORM (`data_source = 'form'`). The watch values stay in the `garmin_*` columns, and HR and training metrics stay Garmin. Open-water swims stay Garmin. `v_activity_summary` keeps Garmin's values for matched swims, so all-sport totals there differ from `v_swimming`. Use `v_swimming` for swim questions. Goggle-only swims appear everywhere with `data_source = 'form'`. Mention the `data_source` when comparing swims.
 
 ## Recommended Workflow
 
