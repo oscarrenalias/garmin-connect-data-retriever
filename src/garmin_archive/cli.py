@@ -1,9 +1,12 @@
 """Command-line interface. Parses arguments and delegates to the library."""
 
 import os
+import signal
 import sys
+import threading
 import traceback
 from pathlib import Path
+from types import FrameType
 from typing import Annotated, Any
 
 import httpx
@@ -15,7 +18,14 @@ from garmin_archive.client import ArchiveClient
 from garmin_archive.config import ArchiveConfig
 from garmin_archive.credentials import DEFAULT_ENV_FILE, find_api_key, require_api_key
 from garmin_archive.models import GarminArchiveError
-from garmin_archive.output import UsageError, emit, error, exit_code_for, success
+from garmin_archive.output import (
+    UsageError,
+    emit,
+    error,
+    exit_code_for,
+    exit_code_for_run_status,
+    success,
+)
 
 app = typer.Typer(help="Archive Garmin Connect activities into a local SQLite database.")
 auth_app = typer.Typer(help="Inspect Garmin API key configuration.")
@@ -98,6 +108,42 @@ def auth_check(ctx: typer.Context) -> None:
         success({"authenticated": result.token_obtained, "search_status": result.search_status}),
         sys.stdout,
     )
+
+
+@app.command()
+def update(
+    ctx: typer.Context,
+    full: Annotated[
+        bool,
+        typer.Option("--full", help="Re-fetch every resource instead of only new or changed ones."),
+    ] = False,
+) -> int:
+    """Discover and archive every activity from Garmin Connect."""
+    obj: dict[str, Any] = ctx.obj or {}
+    source = require_api_key(os.environ, obj.get("env_file") or DEFAULT_ENV_FILE)
+    http_client: httpx.Client | None = obj.get("http_client")
+    api = GarminApiClient(source.key, http_client=http_client)
+    stop = threading.Event()
+
+    def _on_sigint(_signum: int, _frame: FrameType | None) -> None:
+        stop.set()
+
+    previous: Any = None
+    installed = False
+    try:
+        previous = signal.signal(signal.SIGINT, _on_sigint)
+        installed = True
+    except ValueError:  # not in the main thread; fall back to default handling
+        pass
+    try:
+        with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+            result = client.update(api, full=full, stop_flag=stop.is_set)
+    finally:
+        if installed:
+            signal.signal(signal.SIGINT, previous)
+    envelope_status = "ok" if result.status == "complete" else result.status
+    emit(success(result.to_dict(), status=envelope_status), sys.stdout)
+    return exit_code_for_run_status(result.status)
 
 
 def main(argv: list[str] | None = None, *, http_client: httpx.Client | None = None) -> int:

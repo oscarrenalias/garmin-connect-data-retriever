@@ -962,6 +962,45 @@ def test_reader_works_read_only_and_writes_nothing(db_path: Path, writer: Archiv
         ro.close()
 
 
+def test_pending_resources_deterministic_and_filtered(
+    writer: ArchiveWriter, reader: ArchiveReader
+) -> None:
+    _activity(writer, "20")
+    _activity(writer, "10")
+    _summary(writer, b"{}", activity_id="20", resource_state="pending")
+    _summary(writer, b"{}", activity_id="10", resource_state="pending")
+    _activity(writer, "30")
+    _summary(writer, b"{}", activity_id="30")
+    assert reader.pending_resources() == [("10", "summary"), ("20", "summary")]
+
+
+def test_coverage_is_zero_safe(writer: ArchiveWriter, reader: ArchiveReader) -> None:
+    empty = reader.coverage()
+    assert set(empty) == {"summary", "workouts", "original_file"}
+    assert all(v == 0 for counts in empty.values() for v in counts.values())
+    _activity(writer)
+    _summary(writer, b"{}")
+    cov = reader.coverage()
+    assert cov["summary"]["available"] == 1
+    assert cov["summary"]["pending"] == 0
+    assert cov["workouts"]["available"] == 0
+
+
+def test_prior_search_item_hash_stable_and_none(
+    writer: ArchiveWriter, reader: ArchiveReader
+) -> None:
+    _activity(writer)
+    assert reader.prior_search_item(AID) is None
+    assert reader.prior_search_item_hash(AID) is None
+    page = _page(writer, b'[{"x":1},{"b":2,"a":1}]')
+    writer.record_search_item(
+        activity_id=AID, search_page_payload_id=page.payload_id, json_pointer="/1"
+    )
+    assert reader.prior_search_item(AID) == {"a": 1, "b": 2}
+    expected = hashlib.sha256(b'{"a":1,"b":2}').hexdigest()
+    assert reader.prior_search_item_hash(AID) == expected
+
+
 def test_package_exports() -> None:
     import garmin_archive
 
@@ -975,3 +1014,70 @@ def test_package_exports() -> None:
 
 def test_output_error_details_default_empty() -> None:
     assert error("X", "m")["error"]["details"] == {}
+
+
+def test_mark_pending_creates_and_flips_keeping_payload(
+    writer: ArchiveWriter, reader: ArchiveReader
+) -> None:
+    _activity(writer)
+    writer.mark_pending(activity_id=AID, kinds=["summary", "workouts"])
+    assert reader.resource_states(AID) == {"summary": "pending", "workouts": "pending"}
+    _summary(writer, b"{}")
+    payload = reader.current_payload(AID, "summary")
+    assert payload is not None
+    assert reader.resource_states(AID)["summary"] == "available"
+    writer.mark_pending(activity_id=AID, kinds=["summary"])
+    assert reader.resource_states(AID)["summary"] == "pending"
+    after = reader.current_payload(AID, "summary")
+    assert after is not None and after.id == payload.id
+
+
+def test_mark_pending_validation(writer: ArchiveWriter) -> None:
+    with pytest.raises(ValueError):
+        writer.mark_pending(activity_id="abc", kinds=["summary"])
+    _activity(writer)
+    with pytest.raises(ValueError):
+        writer.mark_pending(activity_id=AID, kinds=["summary", "bogus"])
+    with pytest.raises(ValueError):
+        writer.mark_pending(activity_id=AID, kinds=["search_item"])
+    with pytest.raises(StorageError):
+        writer.mark_pending(activity_id="999", kinds=["summary"])
+
+
+def test_update_activity_classification(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
+    _activity(writer)
+    writer.update_activity_classification(
+        activity_id=AID, type_key="running", parent_activity_id="7"
+    )
+    row = conn.execute(
+        "SELECT type_key, parent_activity_id FROM activity_archive WHERE activity_id = ?", (AID,)
+    ).fetchone()
+    assert tuple(row) == ("running", "7")
+    with pytest.raises(StorageError):
+        writer.update_activity_classification(
+            activity_id="999", type_key=None, parent_activity_id=None
+        )
+
+
+def test_batch_commits_all_helpers_together(
+    writer: ArchiveWriter, conn: sqlite3.Connection
+) -> None:
+    with writer.batch():
+        _activity(writer)
+        writer.mark_pending(activity_id=AID, kinds=["summary"])
+        with writer.batch():
+            writer.update_activity_classification(
+                activity_id=AID, type_key="cycling", parent_activity_id=None
+            )
+        assert conn.in_transaction
+    assert not conn.in_transaction
+    assert conn.execute("SELECT type_key FROM activity_archive").fetchone()[0] == "cycling"
+
+
+def test_batch_rolls_back_on_error(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
+    with pytest.raises(StorageError), writer.batch():
+        _activity(writer)
+        writer.mark_pending(activity_id="999", kinds=["summary"])
+    assert not conn.in_transaction
+    assert conn.execute("SELECT COUNT(*) FROM activity_archive").fetchone()[0] == 0
+    _activity(writer)  # writer is usable after rollback

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 
 from garmin_archive._version import __version__
 from garmin_archive.config import ArchiveConfig, resolve_db_path
-from garmin_archive.models import Clock, SystemClock
+from garmin_archive.models import Clock, DatabaseNotFoundError, SystemClock
 from garmin_archive.storage.connection import (
     create_private_file,
     open_read_connection,
@@ -27,6 +27,7 @@ from garmin_archive.storage.migrations import (
     check_schema,
     current_schema_version,
 )
+from garmin_archive.sync.update import UpdateApi, UpdateResult, run_update
 
 SCHEMA_METADATA_KEY = "schema"
 
@@ -116,3 +117,23 @@ class ArchiveClient:
             conn.close()
             raise
         return conn
+
+    def update(
+        self,
+        api: UpdateApi,
+        *,
+        full: bool = False,
+        stop_flag: Callable[[], bool] = lambda: False,
+    ) -> UpdateResult:
+        """Discover and archive every activity; never creates or migrates the database."""
+        path = self.db_path
+        if not path.exists():
+            raise DatabaseNotFoundError(f"Database not found: {path}")
+        with writer_lock(path):
+            conn = open_write_connection(path, busy_timeout_ms=self._config.busy_timeout_ms)
+            try:
+                check_schema(conn, source=self._migrations)
+                return run_update(api, conn, self._clock, full=full, stop_flag=stop_flag)
+            finally:
+                conn.close()
+                secure_sidecar_files(path)

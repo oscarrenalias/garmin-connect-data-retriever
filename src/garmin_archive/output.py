@@ -22,10 +22,10 @@ except ImportError:  # typer >= 0.27 vendors click and no longer depends on it
 OUTPUT_VERSION = 1
 
 
-def success(data: Any, *, warnings: list[Any] | None = None) -> dict[str, Any]:
+def success(data: Any, *, warnings: list[Any] | None = None, status: str = "ok") -> dict[str, Any]:
     """Build a success envelope; ``warnings`` is included only when non-empty."""
     document: dict[str, Any] = {
-        "status": "ok",
+        "status": status,
         "data": data,
         "meta": {"output_version": OUTPUT_VERSION},
     }
@@ -66,6 +66,14 @@ def exit_code_for(exc: BaseException) -> int:
     if isinstance(exc, UsageError):
         return 2
     return 1
+
+
+_RUN_STATUS_EXIT_CODES = {"complete": 0, "partial": 6, "interrupted": 130}
+
+
+def exit_code_for_run_status(status: str) -> int:
+    """Map a finished sync run status to the CLI process exit code (SPEC §9)."""
+    return _RUN_STATUS_EXIT_CODES.get(status, 1)
 
 
 def emit(document: dict[str, Any], stream: TextIO) -> None:
