@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import contextlib
+import json
+import math
 import sqlite3
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 from garmin_archive.models import InvalidQueryError, QueryTimeoutError
+from garmin_archive.output import OUTPUT_VERSION
 from garmin_archive.storage.migrations import current_schema_version
 
 
@@ -268,3 +271,56 @@ def run_query(
     truncated = len(fetched) > limit
     rows = [tuple(r) for r in fetched[:limit]]
     return QueryResult(columns, rows, truncated, int((monotonic() - start) * 1000))
+
+
+DEFAULT_OUTPUT_BUDGET = 10 * 1024 * 1024
+
+
+def convert_value(value: object) -> object:
+    """Convert one SQLite value to a JSON-safe value (BLOBs become a size descriptor)."""
+    if isinstance(value, bytes | bytearray):
+        return {"type": "blob", "bytes": len(value)}
+    if isinstance(value, memoryview):
+        return {"type": "blob", "bytes": value.nbytes}
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
+def tabular_result(
+    result: QueryResult,
+    *,
+    limit_applied: int,
+    schema_version: int,
+    output_budget: int = DEFAULT_OUTPUT_BUDGET,
+) -> dict[str, Any]:
+    """Build the SPEC §9 tabular document, stopping before ``output_budget`` bytes.
+
+    Row sizes are measured as serialized JSON (as emitted, ``ensure_ascii=False``)
+    plus separators; once the next row would exceed the budget, output stops and
+    ``truncated`` is set. If the first row alone is too large, ``rows`` is empty.
+    """
+    truncated = result.truncated
+    rows: list[list[object]] = []
+    used = len(json.dumps(result.columns, ensure_ascii=False))
+    for raw in result.rows:
+        row = [convert_value(v) for v in raw]
+        size = len(json.dumps(row, ensure_ascii=False).encode("utf-8")) + 1
+        if used + size > output_budget:
+            truncated = True
+            break
+        used += size
+        rows.append(row)
+    return {
+        "status": "ok",
+        "columns": result.columns,
+        "rows": rows,
+        "meta": {
+            "row_count": len(rows),
+            "truncated": truncated,
+            "limit_applied": limit_applied,
+            "execution_ms": result.execution_ms,
+            "schema_version": schema_version,
+            "output_version": OUTPUT_VERSION,
+        },
+    }

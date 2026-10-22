@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from garmin_archive.models import InvalidQueryError, QueryTimeoutError
-from garmin_archive.query import harden_connection, run_query
+from garmin_archive.query import QueryResult, harden_connection, run_query, tabular_result
 from garmin_archive.storage.connection import open_read_connection
 
 
@@ -110,3 +111,53 @@ def test_interrupt_without_flag_is_invalid_query(conn: sqlite3.Connection) -> No
 def test_progress_handler_cleared(conn: sqlite3.Connection) -> None:
     run_query(conn, "SELECT 1")
     assert run_query(conn, "SELECT count(*) FROM activities").rows == [(10,)]
+
+
+def _qr(rows: list[tuple[object, ...]], truncated: bool = False) -> QueryResult:
+    return QueryResult(["a", "b"], rows, truncated, 7)
+
+
+def test_tabular_shape_and_blob() -> None:
+    doc = tabular_result(
+        _qr([("x", b"\x00\x01\x02"), (None, 1.5)]), limit_applied=5000, schema_version=3
+    )
+    assert doc["status"] == "ok"
+    assert doc["columns"] == ["a", "b"]
+    assert doc["rows"] == [["x", {"type": "blob", "bytes": 3}], [None, 1.5]]
+    assert doc["meta"] == {
+        "row_count": 2,
+        "truncated": False,
+        "limit_applied": 5000,
+        "execution_ms": 7,
+        "schema_version": 3,
+        "output_version": 1,
+    }
+
+
+def test_large_value_truncates_with_valid_json() -> None:
+    big = "x" * (20 * 1024 * 1024)
+    doc = tabular_result(
+        _qr([("small", 1), (big, 2), ("later", 3)]), limit_applied=10, schema_version=1
+    )
+    assert doc["rows"] == [["small", 1]]
+    assert doc["meta"]["truncated"] is True
+    assert doc["meta"]["row_count"] == 1
+    assert json.loads(json.dumps(doc)) == doc
+
+
+def test_first_row_over_budget_gives_empty_rows() -> None:
+    doc = tabular_result(
+        _qr([("x" * 100, 1)]), limit_applied=10, schema_version=1, output_budget=50
+    )
+    assert doc["rows"] == []
+    assert doc["meta"]["truncated"] is True
+    assert doc["meta"]["row_count"] == 0
+
+
+def test_truncated_flag_preserved_and_nonfinite_float_is_null() -> None:
+    doc = tabular_result(
+        _qr([("x", float("inf"))], truncated=True), limit_applied=1, schema_version=1
+    )
+    assert doc["rows"] == [["x", None]]
+    assert doc["meta"]["truncated"] is True
+    json.dumps(doc, allow_nan=False)
