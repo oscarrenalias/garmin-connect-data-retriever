@@ -1,0 +1,1000 @@
+{
+  "fixtures": {
+    "summaries/pool_swim-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "search-items/pool_swim-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/pool_swim-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "search-items/pool_swim-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/open_water_swim-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.summaryDTO.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/open_water_swim-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/open_water_swim-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.summaryDTO.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/open_water_swim-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/running-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.summaryDTO.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      }
+    ],
+    "workouts/running-1.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/running-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/running-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.summaryDTO.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.summaryDTO.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      }
+    ],
+    "workouts/running-2.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/running-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.startLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.startLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.locationName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.endLatitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.endLongitude",
+        "rule": "coordinate"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/cardio-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "workouts/cardio-1.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/cardio-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/cardio-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "workouts/cardio-2.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/cardio-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/other-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "workouts/other-1.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/other-1.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ],
+    "summaries/other-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityUUID.uuid",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.userProfileId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.userProfilePk",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.displayname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.fullname",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.metadataDTO.userInfoDto.profileImageUrlSmall",
+        "rule": "url"
+      }
+    ],
+    "workouts/other-2.json": [
+      {
+        "json_path": "$[0].workoutName",
+        "rule": "free_text"
+      }
+    ],
+    "search-items/other-2.json": [
+      {
+        "json_path": "$.activityId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.activityName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerId",
+        "rule": "identifier"
+      },
+      {
+        "json_path": "$.ownerDisplayName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerFullName",
+        "rule": "free_text"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlSmall",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlMedium",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.ownerProfileImageUrlLarge",
+        "rule": "url"
+      },
+      {
+        "json_path": "$.activityUUID",
+        "rule": "identifier"
+      }
+    ]
+  }
+}

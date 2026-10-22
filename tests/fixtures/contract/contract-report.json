@@ -1,0 +1,655 @@
+{
+  "report_version": 1,
+  "run_id": "20261022T131234Z",
+  "outcome": "complete",
+  "token": {
+    "http_status": 200,
+    "content_type": "text/plain",
+    "header_names": [
+      "cache-control",
+      "cf-cache-status",
+      "cf-ray",
+      "connection",
+      "content-encoding",
+      "content-type",
+      "date",
+      "pragma",
+      "referrer-policy",
+      "server",
+      "transfer-encoding",
+      "x-content-type-options",
+      "x-frame-options",
+      "x-xss-protection"
+    ],
+    "body_length": 1146,
+    "token_field": null,
+    "token_field_source": "raw_body",
+    "jwt_like": true,
+    "jwt": {
+      "header_keys": [
+        "alg",
+        "kid",
+        "typ"
+      ],
+      "claim_names": [
+        "client_ecosystem",
+        "client_id",
+        "client_type",
+        "exp",
+        "garmin_guid",
+        "iat",
+        "iss",
+        "jti",
+        "managed_status",
+        "revocation_eligibility",
+        "scope"
+      ],
+      "alg": "RS256",
+      "lifetime_s": 86400
+    },
+    "status": "confirmed"
+  },
+  "header_convention": {
+    "scheme": "Bearer",
+    "probe_http_status": 200,
+    "status": "confirmed"
+  },
+  "pagination": {
+    "inventory_status": "complete",
+    "page_size_requested": 99,
+    "page_size_effective": 49,
+    "page_size_reductions": [
+      {
+        "from": 99,
+        "to": 49,
+        "start": 0
+      }
+    ],
+    "page_size_reduction_count": 1,
+    "server_error_pages": 1,
+    "pages": [
+      {
+        "item_count": 49,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:40 GMT",
+          "content-type": "application/json;charset=UTF-8"
+        }
+      },
+      {
+        "item_count": 49,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:41 GMT",
+          "content-type": "application/json;charset=UTF-8"
+        }
+      },
+      {
+        "item_count": 49,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:43 GMT",
+          "content-type": "application/json;charset=UTF-8"
+        }
+      },
+      {
+        "item_count": 49,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:44 GMT",
+          "content-type": "application/json;charset=UTF-8"
+        }
+      },
+      {
+        "item_count": 13,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:45 GMT",
+          "content-type": "application/json;charset=UTF-8"
+        }
+      },
+      {
+        "item_count": 0,
+        "http_status": 200,
+        "headers": {
+          "date": "Thu, 22 Oct 2026 13:12:47 GMT",
+          "content-type": "application/json;charset=UTF-8",
+          "content-length": "2"
+        }
+      }
+    ],
+    "duplicate_id_count": 0,
+    "same_start_time_count": 0,
+    "total_distinct": 209,
+    "status": "confirmed"
+  },
+  "page_size_cap": {
+    "status": "confirmed",
+    "probes": [
+      {
+        "requested": 200,
+        "returned": null,
+        "error": "HTTP 500",
+        "note": "server error; see pagination.page_size_reductions"
+      },
+      {
+        "requested": 1000,
+        "returned": null,
+        "error": "HTTP 500",
+        "note": "server error; see pagination.page_size_reductions"
+      }
+    ]
+  },
+  "ordering": {
+    "stable": true,
+    "differing_positions": 0,
+    "status": "confirmed"
+  },
+  "inventory": {
+    "by_type_key": {
+      "cycling": 2,
+      "hiit": 19,
+      "indoor_cardio": 41,
+      "lap_swimming": 79,
+      "mobility": 31,
+      "open_water_swimming": 8,
+      "running": 24,
+      "strength_training": 4,
+      "walking": 1
+    },
+    "by_parent_type_id": {
+      "17": 27,
+      "26": 87,
+      "29": 95
+    },
+    "child_count": 0,
+    "parent_count": 0,
+    "manual_count": 0,
+    "oldest_month": "2026-03",
+    "newest_month": "2026-10",
+    "owner_id_constant": true,
+    "status": "confirmed"
+  },
+  "samples": [
+    {
+      "name": "pool_swim-1",
+      "category": "pool_swim",
+      "type_key": "lap_swimming",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2458,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:09 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "2",
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:10 GMT"
+        },
+        "item_count": 0
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 39623,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:11 GMT"
+        },
+        "manifest": "files/pool_swim-1.manifest.json"
+      }
+    },
+    {
+      "name": "pool_swim-2",
+      "category": "pool_swim",
+      "type_key": "lap_swimming",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2450,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:13 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "2",
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:14 GMT"
+        },
+        "item_count": 0
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 43204,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:15 GMT"
+        },
+        "manifest": "files/pool_swim-2.manifest.json"
+      }
+    },
+    {
+      "name": "open_water_swim-1",
+      "category": "open_water_swim",
+      "type_key": "open_water_swimming",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2724,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:17 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "2",
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:18 GMT"
+        },
+        "item_count": 0
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 98287,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:19 GMT"
+        },
+        "manifest": "files/open_water_swim-1.manifest.json"
+      }
+    },
+    {
+      "name": "open_water_swim-2",
+      "category": "open_water_swim",
+      "type_key": "open_water_swimming",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2702,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:21 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "2",
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:22 GMT"
+        },
+        "item_count": 0
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 92272,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:23 GMT"
+        },
+        "manifest": "files/open_water_swim-2.manifest.json"
+      }
+    },
+    {
+      "name": "running-1",
+      "category": "running",
+      "type_key": "running",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 6590,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:25 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 1153,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:26 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 103283,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:27 GMT"
+        },
+        "manifest": "files/running-1.manifest.json"
+      }
+    },
+    {
+      "name": "running-2",
+      "category": "running",
+      "type_key": "running",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 7151,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:29 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 1152,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:30 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 114250,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:32 GMT"
+        },
+        "manifest": "files/running-2.manifest.json"
+      }
+    },
+    {
+      "name": "cardio-1",
+      "category": "cardio",
+      "type_key": "indoor_cardio",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2752,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:34 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 4944,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:35 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 16862,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:36 GMT"
+        },
+        "manifest": "files/cardio-1.manifest.json"
+      }
+    },
+    {
+      "name": "cardio-2",
+      "category": "cardio",
+      "type_key": "indoor_cardio",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2770,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:37 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 4944,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:38 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 15951,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:40 GMT"
+        },
+        "manifest": "files/cardio-2.manifest.json"
+      }
+    },
+    {
+      "name": "other-1",
+      "category": "other",
+      "type_key": "mobility",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2734,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:41 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 3224,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:42 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 7582,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "7582",
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:44 GMT"
+        },
+        "manifest": "files/other-1.manifest.json"
+      }
+    },
+    {
+      "name": "other-2",
+      "category": "other",
+      "type_key": "mobility",
+      "summary": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 2736,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:45 GMT"
+        }
+      },
+      "workouts": {
+        "http_status": 200,
+        "content_type": "application/json;charset=UTF-8",
+        "byte_length": 3224,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Thu, 22 Oct 2026 13:13:46 GMT"
+        },
+        "item_count": 1
+      },
+      "original_file": {
+        "http_status": 200,
+        "content_type": "application/x-zip-compressed",
+        "byte_length": 7673,
+        "etag_present": false,
+        "last_modified_present": false,
+        "headers": {
+          "content-length": "7673",
+          "content-type": "application/x-zip-compressed",
+          "date": "Thu, 22 Oct 2026 13:13:47 GMT"
+        },
+        "manifest": "files/other-2.manifest.json"
+      }
+    }
+  ],
+  "categories": {
+    "explicit": {
+      "status": "not_observed",
+      "selected": 0,
+      "note": "not present in account"
+    },
+    "multisport": {
+      "status": "not_observed",
+      "selected": 0,
+      "note": "not present in account"
+    },
+    "manual": {
+      "status": "not_observed",
+      "selected": 0,
+      "note": "not present in account"
+    },
+    "pool_swim": {
+      "status": "confirmed",
+      "selected": 2
+    },
+    "open_water_swim": {
+      "status": "confirmed",
+      "selected": 2
+    },
+    "running": {
+      "status": "confirmed",
+      "selected": 2
+    },
+    "cardio": {
+      "status": "confirmed",
+      "selected": 2
+    },
+    "other": {
+      "status": "confirmed",
+      "selected": 2,
+      "type_key": "mobility"
+    }
+  },
+  "http": {
+    "status": "not_observed",
+    "rate_limit_headers_seen": [],
+    "retry_after_seen": false,
+    "status_429_count": 0,
+    "redirects": [],
+    "other_header_names": [
+      "cache-control",
+      "cf-cache-status",
+      "cf-ray",
+      "connection",
+      "content-disposition",
+      "content-encoding",
+      "pragma",
+      "referrer-policy",
+      "server",
+      "transfer-encoding",
+      "x-content-type-options",
+      "x-frame-options",
+      "x-xss-protection"
+    ],
+    "failures": [],
+    "note": "absence of rate-limit headers does not prove there are no limits"
+  },
+  "leak_check": {
+    "status": "passed",
+    "failed_fixtures": []
+  },
+  "spec_2_3": {
+    "1_token_and_header": "confirmed",
+    "2_pagination": "confirmed",
+    "3_history": "unknown",
+    "4_detail_and_zip_by_sport": "confirmed",
+    "5_manual_multisport_type_keys": "not_observed",
+    "6_rate_limits_and_missing_files": "not_observed"
+  }
+}

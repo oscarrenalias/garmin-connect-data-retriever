@@ -1,0 +1,113 @@
+{
+  "activityId": 85113265022,
+  "activityName": "REDACTED",
+  "startTimeLocal": "2026-04-13 19:36:09",
+  "startTimeGMT": "2026-04-13 16:36:09",
+  "activityType": {
+    "typeId": 11,
+    "typeKey": "indoor_cardio",
+    "parentTypeId": 29
+  },
+  "eventType": {
+    "typeId": 9,
+    "typeKey": "uncategorized"
+  },
+  "isFavorite": false,
+  "isPR": false,
+  "isAutoCalcCalories": false,
+  "isParent": false,
+  "distance": 0.0,
+  "duration": 1221.198974609375,
+  "elapsedDuration": 1221.198974609375,
+  "movingDuration": 0.0,
+  "averageSpeed": 0.0,
+  "hasImages": false,
+  "ownerId": 536156539,
+  "ownerDisplayName": "REDACTED",
+  "ownerFullName": "REDACTED",
+  "ownerProfileImageUrlSmall": "https://redacted.invalid/",
+  "ownerProfileImageUrlMedium": "https://redacted.invalid/",
+  "ownerProfileImageUrlLarge": "https://redacted.invalid/",
+  "calories": 230.0,
+  "bmrCalories": 33.0,
+  "averageHR": 131.0,
+  "maxHR": 178.0,
+  "steps": 1142,
+  "privacy": {
+    "typeId": 2,
+    "typeKey": "private"
+  },
+  "hasVideo": false,
+  "beginTimestamp": 1776098169000,
+  "sportTypeId": 10,
+  "aerobicTrainingEffect": 2.5999999046325684,
+  "anaerobicTrainingEffect": 3.0999999046325684,
+  "isElevationCorrected": false,
+  "summarizedExerciseSets": [
+    {
+      "category": "CARDIO",
+      "subCategory": "JUMP_ROPE",
+      "reps": 328,
+      "volume": 0,
+      "duration": 451261.99996471405,
+      "sets": 16,
+      "maxWeight": 0
+    }
+  ],
+  "isDecoDive": false,
+  "summarizedDiveInfo": {
+    "summarizedDiveGases": []
+  },
+  "manufacturer": "GARMIN",
+  "lapCount": 1,
+  "waterEstimated": 219.0,
+  "totalSets": 16,
+  "activeSets": 16,
+  "totalReps": 328,
+  "trainingEffectLabel": "SPEED",
+  "activityTrainingLoad": 138.15843200683594,
+  "minActivityLapDuration": 1221.198974609375,
+  "aerobicTrainingEffectMessage": "MAINTAINING_TEMPO_21",
+  "anaerobicTrainingEffectMessage": "IMPROVING_ANAEROBIC_CAPACITY_AND_SPEED_12",
+  "splitSummaries": [
+    {
+      "noOfSplits": 16,
+      "duration": 451.2560119628906,
+      "splitType": "INTERVAL_ACTIVE",
+      "numClimbSends": 0,
+      "maxDistance": 0,
+      "distance": 0.0,
+      "averageSpeed": 0.0,
+      "numFalls": 0
+    },
+    {
+      "noOfSplits": 16,
+      "duration": 769.9119873046875,
+      "splitType": "INTERVAL_REST",
+      "numClimbSends": 0,
+      "maxDistance": 0,
+      "distance": 0.0,
+      "averageSpeed": 0.0,
+      "numFalls": 0
+    }
+  ],
+  "isManualActivity": false,
+  "moderateIntensityMinutes": 6,
+  "vigorousIntensityMinutes": 13,
+  "differenceBodyBattery": -5,
+  "hrTimeInZone_1": 91.985,
+  "hrTimeInZone_2": 280.637,
+  "hrTimeInZone_3": 362.144,
+  "hrTimeInZone_4": 319.048,
+  "hrTimeInZone_5": 134.46,
+  "endTimeGMT": "2026-04-13 16:56:30",
+  "qualifyingDive": false,
+  "activityUUID": "5a39e3f0-1ca3-43ec-a649-dbf988e361c1",
+  "pr": false,
+  "elevationCorrected": false,
+  "autoCalcCalories": false,
+  "favorite": false,
+  "manualActivity": false,
+  "decoDive": false,
+  "parent": false
+}

@@ -1,0 +1,103 @@
+{
+  "activityId": 44352577890,
+  "activityUUID": {
+    "uuid": "0fc9a89f-bb50-4cda-a9fc-49b95832100a"
+  },
+  "activityName": "REDACTED",
+  "userProfileId": 536156539,
+  "isMultiSportParent": false,
+  "activityTypeDTO": {
+    "typeId": 28,
+    "typeKey": "open_water_swimming",
+    "parentTypeId": 26
+  },
+  "eventTypeDTO": {
+    "typeId": 9,
+    "typeKey": "uncategorized"
+  },
+  "accessControlRuleDTO": {
+    "typeId": 2,
+    "typeKey": "private"
+  },
+  "timeZoneUnitDTO": {
+    "timeZone": "Europe/Paris"
+  },
+  "metadataDTO": {
+    "isOriginal": true,
+    "fileFormat": {
+      "formatId": 7,
+      "formatKey": "fit"
+    },
+    "lastUpdateDate": "2026-07-05T06:49:52.0",
+    "uploadedDate": "2026-07-05T06:49:49.0",
+    "videoUrl": null,
+    "userInfoDto": {
+      "userProfilePk": 536156539,
+      "displayname": "REDACTED",
+      "fullname": "REDACTED",
+      "profileImageUrlLarge": "https://redacted.invalid/",
+      "profileImageUrlMedium": "https://redacted.invalid/",
+      "profileImageUrlSmall": "https://redacted.invalid/",
+      "userPro": false
+    },
+    "childIds": [],
+    "childActivityTypes": [],
+    "sensors": null,
+    "activityImages": [],
+    "manufacturer": "GARMIN",
+    "lapCount": 4,
+    "hasRunPowerWindData": null,
+    "calendarEventInfo": null,
+    "hasMultiDayActivities": false,
+    "autoCalcCalories": false,
+    "favorite": false,
+    "manualActivity": false,
+    "elevationCorrected": false,
+    "trimmed": false,
+    "runPowerWindDataEnabled": null,
+    "personalRecord": false,
+    "gcj02": false
+  },
+  "summaryDTO": {
+    "startTimeLocal": "2026-07-05T07:45:15.0",
+    "startTimeGMT": "2026-07-05T05:45:15.0",
+    "startLatitude": null,
+    "startLongitude": null,
+    "distance": 1516.53,
+    "duration": 2495.333,
+    "movingDuration": 2190.0,
+    "elapsedDuration": 2632.398,
+    "averageSpeed": 0.6079999804496765,
+    "averageMovingSpeed": 0.692479465432363,
+    "maxSpeed": 1.2020000219345093,
+    "calories": 338.0,
+    "bmrCalories": 67.0,
+    "averageHR": 104.0,
+    "maxHR": 149.0,
+    "minHR": 52.0,
+    "averageSwimCadence": 7.0,
+    "maxSwimCadence": 39.0,
+    "averageTemperature": 24.34677655478702,
+    "maxTemperature": 28.0,
+    "minTemperature": 24.0,
+    "trainingEffect": 2.299999952316284,
+    "anaerobicTrainingEffect": 1.899999976158142,
+    "aerobicTrainingEffectMessage": "MINOR_AEROBIC_BENEFIT_0",
+    "anaerobicTrainingEffectMessage": "MINOR_ANAEROBIC_BENEFIT_15",
+    "totalNumberOfStrokes": 300,
+    "averageSWOLF": 46.0,
+    "averageStrokeDistance": 5.059999942779541,
+    "endLatitude": null,
+    "endLongitude": null,
+    "waterEstimated": 371.0,
+    "trainingEffectLabel": "RECOVERY",
+    "activityTrainingLoad": 73.40568542480469,
+    "minActivityLapDuration": 38.007,
+    "directWorkoutFeel": 100,
+    "directWorkoutRpe": 60,
+    "moderateIntensityMinutes": 13,
+    "vigorousIntensityMinutes": 16,
+    "differenceBodyBattery": -6
+  },
+  "locationName": "REDACTED"
+}

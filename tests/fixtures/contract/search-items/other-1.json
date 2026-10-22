@@ -1,0 +1,122 @@
+{
+  "activityId": 18574370274,
+  "activityName": "REDACTED",
+  "startTimeLocal": "2026-04-10 19:20:40",
+  "startTimeGMT": "2026-04-10 16:20:40",
+  "activityType": {
+    "typeId": 255,
+    "typeKey": "mobility",
+    "parentTypeId": 29
+  },
+  "eventType": {
+    "typeId": 9,
+    "typeKey": "uncategorized"
+  },
+  "isFavorite": false,
+  "isPR": false,
+  "isAutoCalcCalories": false,
+  "isParent": false,
+  "distance": 0.0,
+  "duration": 338.6180114746094,
+  "elapsedDuration": 338.6180114746094,
+  "movingDuration": 209.7570037841797,
+  "averageSpeed": 0.0,
+  "hasImages": false,
+  "ownerId": 536156539,
+  "ownerDisplayName": "REDACTED",
+  "ownerFullName": "REDACTED",
+  "ownerProfileImageUrlSmall": "https://redacted.invalid/",
+  "ownerProfileImageUrlMedium": "https://redacted.invalid/",
+  "ownerProfileImageUrlLarge": "https://redacted.invalid/",
+  "calories": 42.0,
+  "bmrCalories": 9.0,
+  "averageHR": 94.0,
+  "maxHR": 110.0,
+  "steps": 12,
+  "privacy": {
+    "typeId": 2,
+    "typeKey": "private"
+  },
+  "hasVideo": false,
+  "beginTimestamp": 1775838040000,
+  "sportTypeId": 86,
+  "aerobicTrainingEffect": 0.20000000298023224,
+  "anaerobicTrainingEffect": 0.0,
+  "isElevationCorrected": false,
+  "summarizedExerciseSets": [
+    {
+      "category": "BANDED_EXERCISES",
+      "subCategory": "SHOULDER_EXTERNAL_ROTATION",
+      "reps": 6,
+      "volume": 0,
+      "duration": 69574.99694824219,
+      "sets": 1,
+      "maxWeight": 0
+    },
+    {
+      "category": "WARM_UP",
+      "subCategory": "SHOULDER_CIRCLES",
+      "reps": 0,
+      "volume": 0,
+      "duration": 140182.0011138916,
+      "sets": 4,
+      "maxWeight": 0
+    }
+  ],
+  "isDecoDive": false,
+  "summarizedDiveInfo": {
+    "summarizedDiveGases": []
+  },
+  "manufacturer": "GARMIN",
+  "lapCount": 1,
+  "waterEstimated": 39.0,
+  "totalSets": 5,
+  "activeSets": 5,
+  "totalReps": 6,
+  "trainingEffectLabel": "UNKNOWN",
+  "activityTrainingLoad": 2.4808502197265625,
+  "minActivityLapDuration": 338.6180114746094,
+  "aerobicTrainingEffectMessage": "NO_AEROBIC_BENEFIT_18",
+  "anaerobicTrainingEffectMessage": "NO_ANAEROBIC_BENEFIT_0",
+  "splitSummaries": [
+    {
+      "noOfSplits": 4,
+      "duration": 120.0,
+      "splitType": "INTERVAL_REST",
+      "numClimbSends": 0,
+      "maxDistance": 0,
+      "distance": 0.0,
+      "averageSpeed": 0.0,
+      "numFalls": 0
+    },
+    {
+      "noOfSplits": 5,
+      "duration": 218.61199951171875,
+      "splitType": "INTERVAL_ACTIVE",
+      "numClimbSends": 0,
+      "maxDistance": 0,
+      "distance": 0.0,
+      "averageSpeed": 0.0,
+      "numFalls": 0
+    }
+  ],
+  "isManualActivity": false,
+  "moderateIntensityMinutes": 3,
+  "vigorousIntensityMinutes": 0,
+  "differenceBodyBattery": 0,
+  "hrTimeInZone_1": 240.722,
+  "hrTimeInZone_2": 30.001,
+  "hrTimeInZone_3": 0.0,
+  "hrTimeInZone_4": 0.0,
+  "hrTimeInZone_5": 0.0,
+  "endTimeGMT": "2026-04-10 16:26:18",
+  "qualifyingDive": false,
+  "activityUUID": "c3cc56b7-3c92-463d-a989-64155ce01673",
+  "pr": false,
+  "elevationCorrected": false,
+  "autoCalcCalories": false,
+  "favorite": false,
+  "manualActivity": false,
+  "decoDive": false,
+  "parent": false
+}

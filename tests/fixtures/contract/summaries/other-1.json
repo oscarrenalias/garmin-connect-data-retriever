@@ -1,0 +1,121 @@
+{
+  "activityId": 18574370274,
+  "activityUUID": {
+    "uuid": "c3cc56b7-3c92-463d-a989-64155ce01673"
+  },
+  "activityName": "REDACTED",
+  "userProfileId": 536156539,
+  "isMultiSportParent": false,
+  "activityTypeDTO": {
+    "typeId": 255,
+    "typeKey": "mobility",
+    "parentTypeId": 29
+  },
+  "eventTypeDTO": {
+    "typeId": 9,
+    "typeKey": "uncategorized"
+  },
+  "accessControlRuleDTO": {
+    "typeId": 2,
+    "typeKey": "private"
+  },
+  "timeZoneUnitDTO": {
+    "timeZone": "Europe/Athens"
+  },
+  "metadataDTO": {
+    "isOriginal": true,
+    "fileFormat": {
+      "formatId": 7,
+      "formatKey": "fit"
+    },
+    "lastUpdateDate": "2026-04-10T16:26:29.0",
+    "uploadedDate": "2026-04-10T16:26:29.0",
+    "videoUrl": null,
+    "userInfoDto": {
+      "userProfilePk": 536156539,
+      "displayname": "REDACTED",
+      "fullname": "REDACTED",
+      "profileImageUrlLarge": "https://redacted.invalid/",
+      "profileImageUrlMedium": "https://redacted.invalid/",
+      "profileImageUrlSmall": "https://redacted.invalid/",
+      "userPro": false
+    },
+    "childIds": [],
+    "childActivityTypes": [],
+    "sensors": null,
+    "activityImages": [],
+    "manufacturer": "GARMIN",
+    "lapCount": 1,
+    "hasRunPowerWindData": null,
+    "calendarEventInfo": null,
+    "hasMultiDayActivities": false,
+    "runPowerWindDataEnabled": null,
+    "manualActivity": false,
+    "autoCalcCalories": false,
+    "favorite": false,
+    "trimmed": false,
+    "elevationCorrected": false,
+    "personalRecord": false,
+    "gcj02": false
+  },
+  "summaryDTO": {
+    "startTimeLocal": "2026-04-10T19:20:40.0",
+    "startTimeGMT": "2026-04-10T16:20:40.0",
+    "distance": 0.0,
+    "duration": 338.618,
+    "movingDuration": 209.757,
+    "elapsedDuration": 338.618,
+    "averageSpeed": 0.0,
+    "averageMovingSpeed": 0.0,
+    "calories": 42.0,
+    "bmrCalories": 9.0,
+    "averageHR": 94.0,
+    "maxHR": 110.0,
+    "minHR": 74.0,
+    "trainingEffect": 0.20000000298023224,
+    "anaerobicTrainingEffect": 0.0,
+    "aerobicTrainingEffectMessage": "NO_AEROBIC_BENEFIT_18",
+    "anaerobicTrainingEffectMessage": "NO_ANAEROBIC_BENEFIT_0",
+    "activeSets": 5,
+    "waterEstimated": 39.0,
+    "trainingEffectLabel": "UNKNOWN",
+    "activityTrainingLoad": 2.4808502197265625,
+    "minActivityLapDuration": 338.618,
+    "moderateIntensityMinutes": 3,
+    "vigorousIntensityMinutes": 0,
+    "steps": 12,
+    "differenceBodyBattery": 0
+  },
+  "splitSummaries": [
+    {
+      "distance": 0.0,
+      "duration": 120.0,
+      "movingDuration": 0.0,
+      "averageSpeed": 0.0,
+      "calories": 16.0,
+      "bmrCalories": 3.0,
+      "averageHR": 96.0,
+      "maxHR": 110.0,
+      "totalExerciseReps": 0,
+      "splitType": "INTERVAL_REST",
+      "noOfSplits": 4,
+      "maxDistance": 0,
+      "maxDistanceWithPrecision": 0.0
+    },
+    {
+      "distance": 0.0,
+      "duration": 218.612,
+      "movingDuration": 0.0,
+      "averageSpeed": 0.0,
+      "calories": 26.0,
+      "bmrCalories": 6.0,
+      "averageHR": 93.0,
+      "maxHR": 107.0,
+      "totalExerciseReps": 0,
+      "splitType": "INTERVAL_ACTIVE",
+      "noOfSplits": 5,
+      "maxDistance": 0,
+      "maxDistanceWithPrecision": 0.0
+    }
+  ]
+}

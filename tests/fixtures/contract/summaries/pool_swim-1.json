@@ -1,0 +1,99 @@
+{
+  "activityId": 60254568748,
+  "activityUUID": {
+    "uuid": "82bdcf76-804d-4631-8cca-cb926cfb59f7"
+  },
+  "activityName": "REDACTED",
+  "userProfileId": 536156539,
+  "isMultiSportParent": false,
+  "activityTypeDTO": {
+    "typeId": 27,
+    "typeKey": "lap_swimming",
+    "parentTypeId": 26
+  },
+  "eventTypeDTO": {
+    "typeId": 4,
+    "typeKey": "training"
+  },
+  "accessControlRuleDTO": {
+    "typeId": 2,
+    "typeKey": "private"
+  },
+  "timeZoneUnitDTO": {
+    "timeZone": "Europe/Athens"
+  },
+  "metadataDTO": {
+    "isOriginal": false,
+    "fileFormat": {
+      "formatId": 7,
+      "formatKey": "fit"
+    },
+    "lastUpdateDate": "2026-04-25T09:07:48.0",
+    "uploadedDate": "2026-03-29T08:50:40.0",
+    "videoUrl": null,
+    "userInfoDto": {
+      "userProfilePk": 536156539,
+      "displayname": "REDACTED",
+      "fullname": "REDACTED",
+      "profileImageUrlLarge": "https://redacted.invalid/",
+      "profileImageUrlMedium": "https://redacted.invalid/",
+      "profileImageUrlSmall": "https://redacted.invalid/",
+      "userPro": false
+    },
+    "childIds": [],
+    "childActivityTypes": [],
+    "sensors": null,
+    "activityImages": [],
+    "manufacturer": "GARMIN",
+    "lapCount": 66,
+    "hasRunPowerWindData": null,
+    "calendarEventInfo": null,
+    "hasMultiDayActivities": false,
+    "runPowerWindDataEnabled": null,
+    "manualActivity": false,
+    "autoCalcCalories": false,
+    "favorite": false,
+    "trimmed": false,
+    "elevationCorrected": false,
+    "personalRecord": false,
+    "gcj02": false
+  },
+  "summaryDTO": {
+    "startTimeLocal": "2026-03-29T10:51:47.0",
+    "startTimeGMT": "2026-03-29T07:51:47.0",
+    "distance": 1375.0,
+    "duration": 3174.438,
+    "movingDuration": 1654.744,
+    "elapsedDuration": 3231.977,
+    "averageSpeed": 0.8309999704360962,
+    "maxSpeed": 2.38100004196167,
+    "calories": 710.0,
+    "bmrCalories": 86.0,
+    "averageHR": 150.0,
+    "maxHR": 189.0,
+    "minHR": 86.0,
+    "averageSwimCadence": 18.0,
+    "trainingEffect": 4.400000095367432,
+    "anaerobicTrainingEffect": 1.7999999523162842,
+    "aerobicTrainingEffectMessage": "HIGHLY_IMPACTING_TEMPO_23",
+    "anaerobicTrainingEffectMessage": "MINOR_ANAEROBIC_BENEFIT_15",
+    "poolLength": 25.0,
+    "numberOfActiveLengths": 55,
+    "unitOfPoolLength": {
+      "unitId": 1,
+      "unitKey": "meter",
+      "factor": 100.0
+    },
+    "totalNumberOfStrokes": 510,
+    "averageStrokes": 9.300000190734863,
+    "averageSWOLF": 39.0,
+    "averageStrokeDistance": 0.0,
+    "trainingEffectLabel": "TEMPO",
+    "activityTrainingLoad": 190.67176818847656,
+    "minActivityLapDuration": 0.743,
+    "directWorkoutFeel": 75,
+    "directWorkoutRpe": 50,
+    "moderateIntensityMinutes": 4,
+    "vigorousIntensityMinutes": 49
+  }
+}

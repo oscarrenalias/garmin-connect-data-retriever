@@ -1,0 +1,64 @@
+[
+  {
+    "index": 0,
+    "workoutName": "REDACTED",
+    "timeCreated": "2026-05-07T15:31:39.0",
+    "sport": "RUNNING",
+    "manufacturer": "GARMIN",
+    "multisportSet": null,
+    "steps": [
+      {
+        "stepIndex": 0,
+        "name": null,
+        "intensity": "RECOVERY",
+        "durationType": "TIME",
+        "durationValue": 300.0,
+        "targetType": "OPEN",
+        "targetValue": 0.0,
+        "targetValueLow": null,
+        "targetValueHigh": null,
+        "notes": "Warm up before jog",
+        "equipmentType": null,
+        "exerciseCategory": "RUN",
+        "exerciseName": "WALK",
+        "exerciseWeightValue": null,
+        "weightDisplayUnit": "KILOGRAM"
+      },
+      {
+        "stepIndex": 1,
+        "name": null,
+        "intensity": "ACTIVE",
+        "durationType": "TIME",
+        "durationValue": 1200.0,
+        "targetType": "HEART_RATE",
+        "targetValue": 3.0,
+        "targetValueLow": 124.0,
+        "targetValueHigh": 142.0,
+        "notes": null,
+        "equipmentType": null,
+        "exerciseCategory": null,
+        "exerciseName": null,
+        "exerciseWeightValue": null,
+        "weightDisplayUnit": "KILOGRAM"
+      },
+      {
+        "stepIndex": 2,
+        "name": null,
+        "intensity": "RECOVERY",
+        "durationType": "TIME",
+        "durationValue": 300.0,
+        "targetType": "OPEN",
+        "targetValue": 0.0,
+        "targetValueLow": null,
+        "targetValueHigh": null,
+        "notes": "Cooldown walk",
+        "equipmentType": null,
+        "exerciseCategory": "RUN",
+        "exerciseName": "WALK",
+        "exerciseWeightValue": null,
+        "weightDisplayUnit": "KILOGRAM"
+      }
+    ],
+    "workoutPhrase": null
+  }
+]
