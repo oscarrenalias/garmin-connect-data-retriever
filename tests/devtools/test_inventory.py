@@ -68,7 +68,7 @@ def test_pagination_complete_and_query_params(tmp_path: Path) -> None:
     result = run(server, tmp_path, page_size=3)
     assert result.inventory_status == "complete"
     assert result.partial is False
-    assert [len(p) for p in (result.items,)] == [7]
+    assert len(result.items) == 7
     pages = result.pagination["pages"]
     assert [p["item_count"] for p in pages] == [3, 3, 1, 0]
     assert result.pagination["total_distinct"] == 7
