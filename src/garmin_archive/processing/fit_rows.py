@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 
 def to_utc_z(value: Any) -> str | None:
@@ -171,9 +171,11 @@ def sample_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _category(value: Any) -> str | None:
+    item: Any = value
     if isinstance(value, Sequence) and not isinstance(value, str | bytes):
-        value = value[0] if value else None
-    return _text(value)
+        sequence = cast("Sequence[Any]", value)
+        item = sequence[0] if sequence else None
+    return _text(item)
 
 
 def set_rows(sets: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
