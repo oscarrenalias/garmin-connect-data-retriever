@@ -177,3 +177,17 @@ def test_build_report_full_inputs_and_markdown() -> None:
     assert md.startswith("# Contract report")
     assert "| 3 | History restrictions | unknown |" in md
     assert md.endswith("\n")
+
+
+def test_spec_2_3_item_1_confirmed_for_raw_body_token() -> None:
+    from garmin_archive.devtools.discovery.report import derive_spec_2_3
+
+    report: dict[str, Any] = {
+        "token": {"token_field": None, "token_field_source": "raw_body", "status": "confirmed"},
+        "header_convention": {
+            "scheme": "Bearer",
+            "status": "confirmed",
+            "probe_http_status": 200,
+        },
+    }
+    assert derive_spec_2_3(report)["1_token_and_header"] == "confirmed"

@@ -72,7 +72,11 @@ def _json(body: Any, status: int = 200) -> httpx.Response:
 class FakeGarminApi:
     """Callable `httpx.MockTransport` handler. Redirects, 5xx and 429s are opt-in knobs."""
 
-    def __init__(self, *, reorder_first_page: bool = False) -> None:
+    def __init__(
+        self, *, reorder_first_page: bool = False, token_body: bytes | None = None
+    ) -> None:
+        self.token_body = token_body
+        self.token = token_body.decode() if token_body is not None else TOKEN
         self.requests: list[httpx.Request] = []
         self.reorder_first_page = reorder_first_page
         self._first_page_served = 0
@@ -90,8 +94,12 @@ class FakeGarminApi:
         if path == TOKEN_PATH:
             assert request.method == "POST"
             assert request.headers["authorization"] == f"ApiKey {API_KEY}"
+            if self.token_body is not None:
+                return httpx.Response(
+                    200, content=self.token_body, headers={"content-type": "text/plain"}
+                )
             return _json({"accessToken": TOKEN, "expiresIn": 3600})
-        assert request.headers["authorization"] == f"Bearer {TOKEN}"
+        assert request.headers["authorization"] == f"Bearer {self.token}"
         if path == SEARCH_PATH:
             return self._search(request)
         return self._activity(request, path)

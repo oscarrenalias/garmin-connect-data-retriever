@@ -94,7 +94,7 @@ def derive_spec_2_3(report: Mapping[str, Any]) -> dict[str, str]:
     http: Mapping[str, Any] = report.get("http") or {}
 
     rule1 = (
-        bool(token.get("token_field"))
+        (bool(token.get("token_field")) or token.get("token_field_source") == "raw_body")
         and token.get("status") == STATUS_CONFIRMED
         and header.get("scheme") == "Bearer"
         and header.get("status") == STATUS_CONFIRMED
