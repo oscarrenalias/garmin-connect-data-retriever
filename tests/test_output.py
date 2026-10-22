@@ -8,13 +8,21 @@ from typer._click import exceptions as click  # pyright: ignore[reportMissingMod
 
 from garmin_archive.models import (
     AccountMismatchError,
+    ApiAuthError,
+    ApiTransportError,
     ArchiveLockedError,
+    AuthenticationFailedError,
+    AuthorizationError,
+    ContractError,
     DatabaseNotFoundError,
     GarminArchiveError,
     MigrationChecksumError,
+    MissingApiKeyError,
     NotInitializedError,
+    RateLimitError,
     SchemaVersionError,
     StorageError,
+    TransportError,
 )
 from garmin_archive.output import emit, error, exit_code_for, success
 
@@ -23,6 +31,14 @@ from garmin_archive.output import emit, error, exit_code_for, success
     ("exc", "expected"),
     [
         (AccountMismatchError("x"), 3),
+        (ApiAuthError("x"), 3),
+        (MissingApiKeyError("x"), 3),
+        (AuthenticationFailedError("x"), 3),
+        (AuthorizationError("x"), 3),
+        (ApiTransportError("x"), 4),
+        (TransportError("x"), 4),
+        (RateLimitError("x"), 4),
+        (ContractError("x"), 4),
         (StorageError("x"), 5),
         (DatabaseNotFoundError("x"), 5),
         (NotInitializedError("x"), 5),

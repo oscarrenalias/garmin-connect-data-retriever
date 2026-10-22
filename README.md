@@ -19,6 +19,33 @@ GARMIN_ARCHIVE_DB=./my-archive.db garmin-archive init
 migrations. It is idempotent: running it again on an up-to-date database applies nothing. It
 needs no credentials and makes no network calls.
 
+### API key and auth commands
+
+Commands that call Garmin need a Personal API key. The key is read from, in order:
+
+1. The `GARMIN_API_KEY` environment variable, then `GARMIN_CONNECT_API_KEY`.
+2. The same variable names in a `.env` file: `./.env` by default, or the file given by the
+   global `--env-file PATH` option (placed before the subcommand).
+
+The environment wins over the `.env` file. The key is never accepted as a command-line
+argument, and the application never stores the key or the access token: there is no keyring,
+no key file and no `auth configure` command. A token is requested per invocation and kept in
+memory only.
+
+```bash
+echo 'GARMIN_API_KEY=<your-key>' > .env       # or export GARMIN_API_KEY=<your-key>
+garmin-archive auth status                    # is a key configured? (local, no network)
+garmin-archive --env-file ~/secrets/garmin.env auth check
+```
+
+- `auth status` reports `{"configured": bool, "source": ...}`, where `source` is the variable
+  name or the `.env` path, or `null`. It never prints the key, needs no network and always
+  exits 0.
+- `auth check` requests a token and runs a one-item activity search. On success it reports
+  `{"authenticated": true, "search_status": 200}`. It makes no changes to the account or archive.
+  Failures exit with code 3 (`MISSING_API_KEY`, `AUTH_FAILED`, `AUTHORIZATION_ERROR`) or
+  code 4 (`TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_ERROR`).
+
 ### Database path resolution
 
 The database path is resolved in this order:
@@ -72,11 +99,12 @@ Implemented so far (full table in [SPEC §9](docs/SPEC.md)):
 | 0 | Success |
 | 1 | Other library error, or `INTERNAL_ERROR` (unexpected exception) |
 | 2 | Invalid arguments (`INVALID_ARGUMENT`) |
-| 3 | `ACCOUNT_MISMATCH` (database is bound to a different Garmin account) |
+| 3 | Authentication or authorization failure (`MISSING_API_KEY`, `AUTH_FAILED`, `AUTHORIZATION_ERROR`), or `ACCOUNT_MISMATCH` (database is bound to a different Garmin account) |
+| 4 | Transport, rate-limit or contract failure (`TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_ERROR`) |
 | 5 | Storage failure (`StorageError` and subclasses, such as `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`) |
 | 130 | Interrupted (Ctrl-C) |
 
-Codes 4, 6, 7 and 8 are reserved for later features.
+Codes 6, 7 and 8 are reserved for later features.
 
 ### Storage notes
 

@@ -4,14 +4,22 @@ import pytest
 
 from garmin_archive.models import (
     AccountMismatchError,
+    ApiAuthError,
+    ApiTransportError,
     ArchiveLockedError,
+    AuthenticationFailedError,
+    AuthorizationError,
+    ContractError,
     DatabaseNotFoundError,
     GarminArchiveError,
     MigrationChecksumError,
+    MissingApiKeyError,
     NotInitializedError,
+    RateLimitError,
     SchemaVersionError,
     StorageError,
     SystemClock,
+    TransportError,
     utc_rfc3339,
 )
 
@@ -26,6 +34,14 @@ from garmin_archive.models import (
         (MigrationChecksumError, "MIGRATION_CHECKSUM_MISMATCH", StorageError),
         (ArchiveLockedError, "ARCHIVE_LOCKED", StorageError),
         (AccountMismatchError, "ACCOUNT_MISMATCH", GarminArchiveError),
+        (ApiAuthError, "API_AUTH_ERROR", GarminArchiveError),
+        (MissingApiKeyError, "MISSING_API_KEY", ApiAuthError),
+        (AuthenticationFailedError, "AUTH_FAILED", ApiAuthError),
+        (AuthorizationError, "AUTHORIZATION_ERROR", ApiAuthError),
+        (ApiTransportError, "API_TRANSPORT_ERROR", GarminArchiveError),
+        (TransportError, "TRANSPORT_ERROR", ApiTransportError),
+        (RateLimitError, "RATE_LIMITED", ApiTransportError),
+        (ContractError, "CONTRACT_ERROR", ApiTransportError),
     ],
 )
 def test_error_codes_and_hierarchy(cls: type[GarminArchiveError], code: str, parent: type) -> None:
@@ -41,6 +57,10 @@ def test_retryable_defaults() -> None:
     assert ArchiveLockedError("x").retryable is True
     assert StorageError("x").retryable is False
     assert AccountMismatchError("x").retryable is False
+    assert TransportError("x").retryable is True
+    assert RateLimitError("x").retryable is True
+    assert ContractError("x").retryable is False
+    assert AuthenticationFailedError("x").retryable is False
 
 
 def test_details_are_copied() -> None:

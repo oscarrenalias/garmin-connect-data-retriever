@@ -1,19 +1,25 @@
 """Command-line interface. Parses arguments and delegates to the library."""
 
+import os
 import sys
 import traceback
 from pathlib import Path
 from typing import Annotated, Any
 
+import httpx
 import typer
 
 from garmin_archive import __version__
+from garmin_archive.api import GarminApiClient, check_auth
 from garmin_archive.client import ArchiveClient
 from garmin_archive.config import ArchiveConfig
+from garmin_archive.credentials import DEFAULT_ENV_FILE, find_api_key, require_api_key
 from garmin_archive.models import GarminArchiveError
 from garmin_archive.output import UsageError, emit, error, exit_code_for, success
 
 app = typer.Typer(help="Archive Garmin Connect activities into a local SQLite database.")
+auth_app = typer.Typer(help="Inspect Garmin API key configuration.")
+app.add_typer(auth_app, name="auth")
 
 
 def _version_callback(value: bool) -> None:
@@ -38,9 +44,15 @@ def _root(
         Path | None,
         typer.Option("--db", help="Path to the archive database (overrides GARMIN_ARCHIVE_DB)."),
     ] = None,
+    env_file: Annotated[
+        Path,
+        typer.Option("--env-file", help="Path to a .env file holding the Garmin API key."),
+    ] = DEFAULT_ENV_FILE,
 ) -> None:
     """Archive Garmin Connect activities into a local SQLite database."""
-    ctx.obj = {"db": db}
+    prior: dict[str, Any] = ctx.obj or {}
+    injected: httpx.Client | None = prior.get("http_client")
+    ctx.obj = {"db": db, "env_file": env_file, "http_client": injected}
 
 
 @app.command()
@@ -63,10 +75,38 @@ def init(ctx: typer.Context) -> None:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the CLI and return the process exit code."""
+@auth_app.command("status")
+def auth_status(ctx: typer.Context) -> None:
+    """Report whether an API key is configured and where it comes from."""
+    obj: dict[str, Path | None] = ctx.obj or {}
+    env_file = obj.get("env_file") or DEFAULT_ENV_FILE
+    found = find_api_key(os.environ, env_file)
+    source = None
+    if found is not None:
+        source = found.variable if found.env_file is None else str(found.env_file)
+    emit(success({"configured": found is not None, "source": source}), sys.stdout)
+
+
+@auth_app.command("check")
+def auth_check(ctx: typer.Context) -> None:
+    """Verify the API key by requesting a token and fetching one activity page."""
+    obj: dict[str, Any] = ctx.obj or {}
+    source = require_api_key(os.environ, obj.get("env_file") or DEFAULT_ENV_FILE)
+    http_client: httpx.Client | None = obj.get("http_client")
+    result = check_auth(GarminApiClient(source.key, http_client=http_client))
+    emit(
+        success({"authenticated": result.token_obtained, "search_status": result.search_status}),
+        sys.stdout,
+    )
+
+
+def main(argv: list[str] | None = None, *, http_client: httpx.Client | None = None) -> int:
+    """Run the CLI and return the process exit code.
+
+    ``http_client`` lets callers (tests) inject the HTTP client used by network commands.
+    """
     try:
-        result: Any = app(args=argv, standalone_mode=False)
+        result: Any = app(args=argv, standalone_mode=False, obj={"http_client": http_client})
     except UsageError as exc:
         emit(error("INVALID_ARGUMENT", str(exc)), sys.stdout)
         return exit_code_for(exc)

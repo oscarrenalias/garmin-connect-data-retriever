@@ -57,6 +57,44 @@ class AccountMismatchError(GarminArchiveError):
     code = "ACCOUNT_MISMATCH"
 
 
+class ApiAuthError(GarminArchiveError):
+    """Base for credential and authorization failures against the Garmin API."""
+
+    code = "API_AUTH_ERROR"
+
+
+class MissingApiKeyError(ApiAuthError):
+    code = "MISSING_API_KEY"
+
+
+class AuthenticationFailedError(ApiAuthError):
+    code = "AUTH_FAILED"
+
+
+class AuthorizationError(ApiAuthError):
+    code = "AUTHORIZATION_ERROR"
+
+
+class ApiTransportError(GarminArchiveError):
+    """Base for network, rate-limit and upstream-contract failures."""
+
+    code = "API_TRANSPORT_ERROR"
+    default_retryable = True
+
+
+class TransportError(ApiTransportError):
+    code = "TRANSPORT_ERROR"
+
+
+class RateLimitError(ApiTransportError):
+    code = "RATE_LIMITED"
+
+
+class ContractError(ApiTransportError):
+    code = "CONTRACT_ERROR"
+    default_retryable = False
+
+
 class Clock(Protocol):
     """Injectable source of the current time."""
 
