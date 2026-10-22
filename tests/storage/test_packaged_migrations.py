@@ -16,11 +16,12 @@ EXPECTED_TABLES = {
 }
 
 
-def test_packaged_migrations_load_exactly_version_one() -> None:
+def test_packaged_migrations_load_versions_one_and_two() -> None:
     migrations = PackagedMigrations().load()
 
-    assert [m.version for m in migrations] == [1]
+    assert [m.version for m in migrations] == [1, 2]
     assert migrations[0].name == "archive"
+    assert migrations[1].name == "activities"
 
 
 def test_archive_script_creates_expected_schema() -> None:

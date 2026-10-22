@@ -58,9 +58,101 @@ Output `data` fields:
 | `inventory` | `complete` if discovery reached the end of the search results, else `incomplete` |
 | `incomplete_reason` | Why discovery stopped early, or `null` |
 | `pending` | Number of resources still waiting to be fetched |
+| `processed` | Activities whose derived rows were rebuilt at the end of the run (`processed` plus `partial` status) |
+| `processing_failed` | Activities whose processing failed (see [Activity processing](#activity-processing)) |
 | `hint` | `null` when complete; otherwise a prompt to run `update` (or `update --full`) again |
 
 A run is `complete` only when discovery reached the end and nothing is `failed` or `pending`.
+
+After the sync row is finalized, `update` processes every activity whose inputs changed (see
+[Activity processing](#activity-processing)). Processing never changes the sync `status` or the
+exit code: a processing failure only shows up in `processing_failed`, and is retried by the next
+`update` or by `reprocess`.
+
+### Rebuilding derived tables: `garmin-archive reprocess`
+
+```bash
+garmin-archive reprocess                       # rebuild every activity
+garmin-archive reprocess --activity-id 1001    # rebuild one activity
+```
+
+`reprocess` rebuilds the derived tables from the archived payloads only. It needs no
+credentials, makes no network calls and never changes raw payloads. It requires an existing
+database (a missing one is a storage error, exit 5) and holds the writer lock
+(`ARCHIVE_LOCKED` if another writer has it). It ignores input fingerprints, so it rebuilds
+everything even when nothing changed, and keeps going after a per-activity failure.
+
+Output `data`: `{"processed": n, "partial": n, "failed": n}`. `processed` counts only fully
+processed activities; `partial` and `failed` are counted separately. Unlike `update`, the
+`processed` count here excludes `partial`.
+
+| Exit code | Meaning |
+| --------- | ------- |
+| 0 | No activity failed (partial results still exit 0) |
+| 7 | At least one activity failed, including an unknown `--activity-id` (counted as one failure) |
+| 5 | Storage failure: missing or uninitialized database, or `ARCHIVE_LOCKED` |
+
+There is no `--sport` selector and no `--all` or `--failed-only` flag in v1: no selector means
+all activities.
+
+### Activity processing
+
+Processing turns archived raw payloads into rebuildable derived tables. Every derived row
+carries `processing_run_id` (the `processing_runs` row that built it) and `source_payload_id`
+(the payload it came from). All metric columns are nullable: NULL means absent or unknown, never
+0. Timestamps are UTC RFC 3339 strings ending in `Z`; offset-free Garmin timestamps are never
+interpreted in the host timezone. Units are in the column suffix: `_m` meters, `_s` seconds,
+`_mps` m/s, `_bpm`, `_w` watts, `_kcal`, `_kg`, `_c` Celsius, `_deg` degrees.
+
+| Table | Grain and key | Source and notes |
+| ----- | ------------- | ---------------- |
+| `activities` | One row per activity; `activity_id` | Summary JSON first, activity-search item only for fields the summary lacks. Holds `type_key`, `sport_family`, names, UTC/local start, `local_date`, `timezone`, distance, durations, speed, HR, calories, elevation, training effect and load, plus `processing_status` and `processed_at_utc` |
+| `activity_sessions` | One row per FIT session; `(activity_id, session_index)` | `fit_sport`, `fit_subsport`, start, distance, durations, HR, `fit_message_index` |
+| `activity_laps` | One row per FIT lap message; `(activity_id, lap_index)` | `session_index` is a plain column, assigned by lap start time. JSON splits are not laps. `cadence` and `cadence_unit` exist but are not populated yet (always NULL) |
+| `activity_samples` | One row per FIT record; `(activity_id, sample_index)` | Native rate: no resampling, interpolation or zero-filling. `elapsed_s` is measured from the first timestamped record. Position is converted from semicircles to degrees |
+| `activity_sets` | One row per FIT set message; `(activity_id, set_index)` | `set_type`, start, `duration_s`, `repetitions`, `weight_kg`, `category` |
+
+`cadence_unit` is `fit_rpm` whenever `cadence` is present and NULL otherwise: sample cadence is
+the raw FIT value, not converted to steps per minute, because FIT and Connect summary cadence
+conventions differ.
+
+A multisport parent keeps its own FIT sessions; they are never copied onto its children, and
+parent ids may refer to activities not yet archived. A file that cannot be decoded as FIT (or is
+missing) leaves the activity with only its `activities` row.
+
+**Sport families.** `sport_family` comes from the Garmin `typeKey`, never from the activity
+name. The mapping is versioned by `SPORTS_VERSION` (currently `1`):
+
+| Family | `typeKey` values |
+| ------ | ---------------- |
+| `running` | `running`, `treadmill_running`, `trail_running`, `track_running`, `street_running`, `indoor_running`, `virtual_run` |
+| `swimming` | `lap_swimming`, `open_water_swimming` |
+| `hiit` | `hiit` |
+| `cardio` | `indoor_cardio` |
+| `cycling` | `cycling`, `road_biking`, `mountain_biking`, `gravel_cycling`, `indoor_cycling`, `virtual_ride` |
+| `walking` | `walking`, `casual_walking`, `speed_walking` |
+| `other` | any other or missing `typeKey` (the original `type_key` is kept) |
+
+**Processing status.** Each attempt is a `processing_runs` row. `activities.processing_status`
+is the status of the run that built the current rows:
+
+- `processed`: all inputs were present and usable.
+- `partial`: rows were built, but with warnings (missing or non-JSON summary, missing or
+  undecodable original file, laps without a session). Warnings are stored in
+  `processing_runs.warnings_json`.
+- `failed`: the attempt raised an error. It is recorded only on the run (`status`, stable
+  `error_code`, no message). The previous derived rows are kept untouched.
+
+An activity's derived rows are replaced atomically in one transaction, so obsolete rows never
+survive a rebuild.
+
+**Fingerprint rules.** `update` processes an activity only when its input fingerprint differs
+from the one on its latest `processed` or `partial` run. The fingerprint hashes the current
+summary payload id, the current original-file payload id and the processor version
+(`<package version>+sports<SPORTS_VERSION>`). The search item is deliberately excluded because
+it is only a fallback source. Consequences: new or changed payloads and a new package or
+`SPORTS_VERSION` trigger reprocessing; a `partial` run with unchanged inputs is not retried; a
+`failed` run is retried, as it never counts as a successful run.
 
 ### API key and auth commands
 
@@ -146,9 +238,10 @@ Implemented so far (full table in [SPEC §9](docs/SPEC.md)):
 | 4 | Transport, rate-limit or contract failure (`TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_ERROR`) |
 | 5 | Storage failure (`StorageError` and subclasses, such as `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`, or a missing or uninitialized database) |
 | 6 | `update` finished `partial`: some resources are `failed` or `pending`, or discovery was incomplete; run `update` again |
+| 7 | `reprocess` finished with at least one failed activity |
 | 130 | Interrupted (Ctrl-C) |
 
-Codes 7 and 8 are reserved for later features. `update` uses 0, 6 and 130 for run outcomes and 3, 4 and 5 for failures (4 also covers an API error before anything was archived).
+Code 8 is reserved for a later feature. `update` uses 0, 6 and 130 for run outcomes and 3, 4 and 5 for failures (4 also covers an API error before anything was archived).
 
 ### Storage notes
 
@@ -157,6 +250,8 @@ Codes 7 and 8 are reserved for later features. `update` uses 0, 6 and 130 for ru
 - Writers take a single-writer lock on the archive (`ARCHIVE_LOCKED` if held).
 - `activity_archive.availability_status` is one of `listed`, `not_found` or `forbidden`
   (default `listed`).
+- Derived activity tables are created by migration 2 (`0002_activities.sql`); see
+  [Activity processing](#activity-processing).
 - `activity_resources.kind` is one of `search_item`, `summary`, `workouts`, `original_file`
   or `imported_file`. `search_item` represents the SPEC §5.1 link from an activity to its
   item inside a stored search-page payload (payload id plus JSON pointer).

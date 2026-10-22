@@ -12,6 +12,7 @@ from types import TracebackType
 from garmin_archive._version import __version__
 from garmin_archive.config import ArchiveConfig, resolve_db_path
 from garmin_archive.models import Clock, DatabaseNotFoundError, SystemClock
+from garmin_archive.processing.batch import BatchCounters, reprocess
 from garmin_archive.storage.connection import (
     create_private_file,
     open_read_connection,
@@ -137,3 +138,19 @@ class ArchiveClient:
             finally:
                 conn.close()
                 secure_sidecar_files(path)
+
+    def reprocess(self, activity_id: str | None = None) -> BatchCounters:
+        """Rebuild derived tables from archived payloads; local only, never touches the network.
+
+        ``reprocess`` takes the writer lock itself, so none is held here.
+        """
+        path = self.db_path
+        if not path.exists():
+            raise DatabaseNotFoundError(f"Database not found: {path}")
+        conn = open_write_connection(path, busy_timeout_ms=self._config.busy_timeout_ms)
+        try:
+            check_schema(conn, source=self._migrations)
+            return reprocess(conn, self._clock, activity_id)
+        finally:
+            conn.close()
+            secure_sidecar_files(path)
