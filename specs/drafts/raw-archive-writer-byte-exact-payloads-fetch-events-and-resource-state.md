@@ -115,7 +115,11 @@ Works on read or write connections and performs no writes.
 - `resource_states(activity_id) -> dict[str, str]` maps kind to state.
 - `fetch_events(resource_key) -> list[FetchEvent]` is ordered by `id`. `FetchEvent` is a frozen dataclass of the columns, with `request_params` parsed into a dict.
 
-### 4. Request-parameter guard
+### 4. Small fix carried over from the foundation spec
+
+`output.error(...)` currently emits `"details": null` when no details are given. It must emit `"details": {}` (SPEC §9 error shape). Update `src/garmin_archive/output.py` and its test.
+
+### 5. Request-parameter guard
 
 `request_params` is `Mapping[str, str | int | bool] | None`. It is serialized as `json.dumps(params, sort_keys=True, separators=(",", ":"))`. A key matching `(?i)(auth|token|key|secret|password|cookie)` raises `ValueError` before any write. Values are never inspected for secrets; callers must not pass credentials, and the guard is defence in depth.
 
@@ -126,6 +130,7 @@ Works on read or write connections and performs no writes.
 | `src/garmin_archive/archive.py` | New: keys, `ArchiveWriter`, `ArchiveReader`, dataclasses |
 | `src/garmin_archive/__init__.py` | Re-export `ArchiveWriter`, `ArchiveReader`, `RawPayload`, `RecordResult` and `FetchEvent` |
 | `tests/test_archive.py` (and helpers) | New |
+| `src/garmin_archive/output.py`, `tests/test_output.py` | `details` defaults to `{}` |
 
 Do not change the schema migration from the foundation spec. If a schema change is genuinely required, stop and flag it.
 
@@ -164,6 +169,7 @@ All tests use a database created with `ArchiveClient.initialize()` in `tmp_path`
    - A non-digit ID raises `ValueError`.
 10. Request params with keys `Authorization`, `access_token` or `apiKey` raise `ValueError`, and no rows are written. Allowed params are stored as compact, sorted JSON.
 11. All `*_at_utc` values written equal the fixed clock's RFC 3339 `Z` strings.
+15. `output.error("X", "m")` produces `details == {}`.
 12. No method of `ArchiveWriter` leaves `conn.in_transaction` true after it returns or raises.
 13. An invalid `resource_state` or `availability_status`, or `kind='imported_file'`, raises `ValueError` and writes nothing. An unknown `sync_run_id` raises `StorageError` and writes nothing.
 14. `mark_summary_check(..., availability_status='not_found')` sets the status and `last_summary_check_at_utc`, leaves `last_seen_at_utc` unchanged, and keeps all payloads and resources.
