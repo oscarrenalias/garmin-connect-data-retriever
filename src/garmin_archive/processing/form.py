@@ -22,6 +22,7 @@ from garmin_archive.processing.swim import swim_length_rows
 from garmin_archive.storage.connection import transaction
 
 _YARD_M = 0.9144
+_FIT_EPOCH = datetime(1989, 12, 31, tzinfo=UTC)
 _ENVIRONMENTS = {"lap_swimming": "pool", "open_water": "open_water"}
 
 
@@ -37,7 +38,11 @@ def _pool_length_m(session: Mapping[str, Any]) -> float | None:
 def _local_date(activity: Mapping[str, Any] | None) -> str | None:
     """Calendar date of ``local_timestamp``; the SDK value already reads as local wall time."""
     value = None if activity is None else activity.get("local_timestamp")
-    return value.date().isoformat() if isinstance(value, datetime) else None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, int) and not isinstance(value, bool):
+        return (_FIT_EPOCH + timedelta(seconds=value)).date().isoformat()
+    return None
 
 
 def _sum(rows: Sequence[Mapping[str, Any]], length_type: str, key: str) -> float | None:

@@ -6,7 +6,10 @@ only the host is. No Garmin credentials are involved.
 
 from __future__ import annotations
 
+import logging
 import re
+from collections.abc import Generator
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 import httpx
@@ -22,6 +25,21 @@ class FormDownloadError(GarminArchiveError):
     """A FORM download was refused or failed. The message holds the host only."""
 
     code = "FORM_DOWNLOAD_ERROR"
+
+
+@contextmanager
+def _suppress_httpx_request_log(url: str) -> Generator[None]:
+    """Drop httpx log records that carry ``url``; its query string is a credential."""
+    httpx_logger = logging.getLogger("httpx")
+
+    def _allow(record: logging.LogRecord) -> bool:
+        return url not in record.getMessage()
+
+    httpx_logger.addFilter(_allow)
+    try:
+        yield
+    finally:
+        httpx_logger.removeFilter(_allow)
 
 
 def _host_of(url: str) -> str:
@@ -58,9 +76,10 @@ def download_form_zip(
     chunks: list[bytes] = []
     total = 0
     try:
-        with client.stream(
-            "GET", url, follow_redirects=False, timeout=DOWNLOAD_TIMEOUT
-        ) as response:
+        with (
+            _suppress_httpx_request_log(url),
+            client.stream("GET", url, follow_redirects=False, timeout=DOWNLOAD_TIMEOUT) as response,
+        ):
             status = response.status_code
             if 300 <= status < 400:
                 raise FormDownloadError(f"Download from {host} refused: redirect (HTTP {status})")

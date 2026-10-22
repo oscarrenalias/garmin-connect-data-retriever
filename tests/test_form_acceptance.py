@@ -566,11 +566,6 @@ def test_unmatched_session_overlapping_garmin_swim_in_other_environment_is_absen
         assert sources == {"garmin"}, view
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEFECT: httpx logs 'HTTP Request: GET <full URL>' at INFO, so with INFO logging "
-    "enabled the signed query string reaches the logs (spec AC 4)",
-)
 def test_url_query_string_absent_from_httpx_info_logs(
     db_path: Path, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
 ) -> None:
