@@ -78,6 +78,12 @@ def _window(message: Mapping[str, Any]) -> tuple[datetime, datetime] | None:
     )
 
 
+# Public names for sibling modules (swim.py); the underscore forms stay for local use.
+number = _number
+text = _text
+window = _window
+
+
 def _session_index(lap_start: Any, windows: list[tuple[datetime, datetime] | None]) -> int:
     """Index of the session whose window holds ``lap_start``; nearest earlier start otherwise."""
     if not windows or not isinstance(lap_start, datetime):
