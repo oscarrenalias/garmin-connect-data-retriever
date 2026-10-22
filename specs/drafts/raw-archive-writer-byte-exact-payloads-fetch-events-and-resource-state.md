@@ -169,10 +169,10 @@ All tests use a database created with `ArchiveClient.initialize()` in `tmp_path`
    - A non-digit ID raises `ValueError`.
 10. Request params with keys `Authorization`, `access_token` or `apiKey` raise `ValueError`, and no rows are written. Allowed params are stored as compact, sorted JSON.
 11. All `*_at_utc` values written equal the fixed clock's RFC 3339 `Z` strings.
-15. `output.error("X", "m")` produces `details == {}`.
 12. No method of `ArchiveWriter` leaves `conn.in_transaction` true after it returns or raises.
 13. An invalid `resource_state` or `availability_status`, or `kind='imported_file'`, raises `ValueError` and writes nothing. An unknown `sync_run_id` raises `StorageError` and writes nothing.
 14. `mark_summary_check(..., availability_status='not_found')` sets the status and `last_summary_check_at_utc`, leaves `last_seen_at_utc` unchanged, and keeps all payloads and resources.
+15. `output.error("X", "m")` produces `details == {}`.
 
 ## Pending Decisions
 
