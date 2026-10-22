@@ -211,3 +211,72 @@ def test_parse_items_envelopes() -> None:
     assert parse_items(b'{"x": 1}') is None
     assert parse_items(b'{"activityList": [{"a": 1}, 3]}') == [{"a": 1}]
     assert parse_items(b'[{"a": 1}]') == [{"a": 1}]
+
+
+class CapServer(Server):
+    """Returns 500 whenever `limit` exceeds `max_limit`."""
+
+    def __init__(self, items: list[dict[str, Any]], max_limit: int) -> None:
+        super().__init__(items)
+        self.max_limit = max_limit
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if int(request.url.params["limit"]) > self.max_limit:
+            self.requests.append(request)
+            return httpx.Response(500, text="boom")
+        return super().__call__(request)
+
+
+def test_adaptive_page_size_reduces_and_completes(tmp_path: Path) -> None:
+    server = CapServer(
+        [act(i, f"2024-01-01 08:{i // 60:02d}:{i % 60:02d}") for i in range(209)], 30
+    )
+    result = run(server, tmp_path)
+    assert result.inventory_status == "complete"
+    assert result.pagination["page_size_effective"] == 24
+    assert result.pagination["page_size_reductions"] == [
+        {"from": 99, "to": 49, "start": 0},
+        {"from": 49, "to": 24, "start": 0},
+    ]
+    assert result.pagination["page_size_reduction_count"] == 2
+    assert result.pagination["total_distinct"] == 209
+    assert result.pagination["duplicate_id_count"] == 0
+    # One attempt per intermediate size.
+    assert [r.url.params["limit"] for r in server.requests[:3]] == ["99", "49", "24"]
+    assert all(p.get("note") for p in result.cap_probes)
+
+
+def test_adaptive_failure_at_every_size_is_bounded(tmp_path: Path) -> None:
+    server = CapServer([act(i) for i in range(1, 8)], 0)
+    result = run(server, tmp_path)
+    assert result.inventory_status == "incomplete"
+    pages = [r for r in server.requests if "sortBy" in r.url.params]
+    # 99, 49, 24, 12 once each, then 10 with the full 4-attempt policy.
+    assert [r.url.params["limit"] for r in pages] == ["99", "49", "24", "12"] + ["10"] * 4
+    assert result.pagination["page_size_effective"] == 10
+
+
+def test_failed_requests_are_logged_and_dir_exists(tmp_path: Path) -> None:
+    server = CapServer([act(1)], 0)
+    recorder = RawRecorder(tmp_path)
+    assert recorder.raw_dir.is_dir()
+    http = DiscoveryHttp(delay=0, sleep=lambda s: None, transport=httpx.MockTransport(server))
+    run_inventory(http, recorder, SecretStr(TOKEN))
+    entries = [json.loads(line) for line in recorder.requests_path.read_text().splitlines()]
+    assert entries
+    assert all(e["status"] == 500 and e["path"] == SEARCH_PATH for e in entries)
+    assert not list(recorder.raw_dir.iterdir())
+    assert TOKEN not in recorder.requests_path.read_text()
+
+
+def test_transport_errors_are_logged(tmp_path: Path) -> None:
+    def boom(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("secret-url", request=request)
+
+    recorder = RawRecorder(tmp_path)
+    http = DiscoveryHttp(delay=0, sleep=lambda s: None, transport=httpx.MockTransport(boom))
+    run_inventory(http, recorder, SecretStr(TOKEN), page_size=10)
+    entries = [json.loads(line) for line in recorder.requests_path.read_text().splitlines()]
+    assert entries[0]["error"] == "ConnectError"
+    assert entries[0]["status"] is None
+    assert "secret-url" not in recorder.requests_path.read_text()

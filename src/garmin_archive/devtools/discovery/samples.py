@@ -79,6 +79,7 @@ def _fetch(
     path = template.format(id=sample.activity_id)
     response = http.get(path, headers={"Authorization": f"Bearer {token.get_secret_value()}"})
     if isinstance(response, RetriesExhausted):
+        recorder.record_failure(f"{kind}-{sample.name}", "GET", path, None, response)
         failures.append({"resource": f"{kind}:{sample.name}", "error": response.error})
         return None
     recorder.record(f"{kind}-{sample.name}", "GET", path, None, response)

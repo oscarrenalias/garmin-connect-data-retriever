@@ -191,3 +191,17 @@ def test_spec_2_3_item_1_confirmed_for_raw_body_token() -> None:
         },
     }
     assert derive_spec_2_3(report)["1_token_and_header"] == "confirmed"
+
+
+def test_markdown_explains_page_size_reduction() -> None:
+    from garmin_archive.devtools.discovery.report import render_markdown
+
+    text = render_markdown(
+        {
+            "pagination": {
+                "page_size_effective": 24,
+                "page_size_reductions": [{"from": 99, "to": 49, "start": 0}],
+            }
+        }
+    )
+    assert "Server returned 5xx for pages of 99; effective page size 24." in text

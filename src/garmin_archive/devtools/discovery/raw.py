@@ -14,7 +14,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
-from garmin_archive.devtools.discovery.http import HttpResponse, is_allowlisted
+from garmin_archive.devtools.discovery.http import HttpResponse, RetriesExhausted, is_allowlisted
 
 DEFAULT_BASE_DIR = Path(".local") / "discovery"
 RUN_ID_FORMAT = "%Y%m%dT%H%M%SZ"
@@ -69,6 +69,7 @@ class RawRecorder:
         self.raw_dir = self.run_dir / "raw"
         self.requests_path = self.run_dir / REQUESTS_LOG
         self._seq = 0
+        self.raw_dir.mkdir(parents=True, exist_ok=True)
 
     def record(
         self,
@@ -100,6 +101,34 @@ class RawRecorder:
             "body_file": f"raw/{body_path.name}",
             "body_bytes": len(response.body),
         }
+        self._append(entry)
+        return body_path
+
+    def record_failure(
+        self,
+        label: str,
+        method: str,
+        path: str,
+        params: Mapping[str, str] | None,
+        failure: RetriesExhausted,
+    ) -> None:
+        """Log a data call that ended in a 5xx or transport error. No body is stored."""
+        self._seq += 1
+        entry: dict[str, object] = {
+            "seq": self._seq,
+            "label": _UNSAFE.sub("_", label).strip("._") or "response",
+            "method": method.upper(),
+            "path": path,
+            "params": dict(params) if params else {},
+            "status": failure.last_status,
+            "error": failure.error,
+            "attempts": failure.attempts,
+            "headers": {},
+            "elapsed_ms": failure.elapsed_ms,
+        }
+        self._append(entry)
+
+    def _append(self, entry: Mapping[str, object]) -> None:
+        self.run_dir.mkdir(parents=True, exist_ok=True)
         with self.requests_path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps(entry, sort_keys=True) + "\n")
-        return body_path

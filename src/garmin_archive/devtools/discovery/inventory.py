@@ -22,6 +22,8 @@ SEARCH_PATH = "/activitylist-service/activities/search/activities"
 DEFAULT_PAGE_SIZE = 99
 DEFAULT_MAX_PAGES = 500
 CAP_PROBE_LIMITS: tuple[int, ...] = (200, 1000)
+MIN_PAGE_SIZE = 10
+CAP_ERROR_NOTE = "server error; see pagination.page_size_reductions"
 
 _MONTH = re.compile(r"^(\d{4}-\d{2})")
 
@@ -73,13 +75,16 @@ def _fetch(
     token: SecretStr,
     label: str,
     params: Mapping[str, str],
+    max_retries: int | None = None,
 ) -> tuple[HttpResponse | RetriesExhausted, list[Item] | None]:
     response = http.get(
         SEARCH_PATH,
         params=params,
         headers={"Authorization": f"Bearer {token.get_secret_value()}"},
+        max_retries=max_retries,
     )
     if isinstance(response, RetriesExhausted):
+        recorder.record_failure(label, "GET", SEARCH_PATH, params, response)
         return response, None
     recorder.record(label, "GET", SEARCH_PATH, params, response)
     if not 200 <= response.status < 300:
@@ -169,6 +174,7 @@ def run_inventory(
     *,
     page_size: int = DEFAULT_PAGE_SIZE,
     max_pages: int = DEFAULT_MAX_PAGES,
+    min_page_size: int = MIN_PAGE_SIZE,
 ) -> InventoryResult:
     """Paginate the search endpoint, run the cap and ordering probes, compute facts.
 
@@ -183,6 +189,8 @@ def run_inventory(
     start = 0
     status = "complete"
     note: str | None = None
+    size = page_size
+    reductions: list[dict[str, int]] = []
 
     while True:
         if len(pages) >= max_pages:
@@ -191,12 +199,22 @@ def run_inventory(
             break
         params = {
             "start": str(start),
-            "limit": str(page_size),
+            "limit": str(size),
             "excludeChildren": "false",
             "sortBy": "startLocal",
             "sortOrder": "asc",
         }
-        response, items = _fetch(http, recorder, token, f"search-page-{len(pages) + 1:04d}", params)
+        label = f"search-page-{len(pages) + 1:04d}"
+        # Above the minimum size one attempt is enough: a failure just shrinks the page.
+        shrinkable = size > min_page_size
+        response, items = _fetch(
+            http, recorder, token, label, params, max_retries=0 if shrinkable else None
+        )
+        if isinstance(response, RetriesExhausted) and shrinkable:
+            new_size = max(size // 2, min_page_size)
+            reductions.append({"from": size, "to": new_size, "start": start})
+            size = new_size
+            continue
         if isinstance(response, RetriesExhausted):
             status, note = "incomplete", "search page retries exhausted"
             break
@@ -237,9 +255,13 @@ def run_inventory(
         probe: dict[str, Any] = {"limit": limit}
         if isinstance(response, RetriesExhausted):
             probe.update(error=response.error)
+            if reductions:
+                probe["note"] = CAP_ERROR_NOTE
         else:
             probe["http_status"] = response.status
             probe["item_count"] = len(items) if items is not None else None
+            if response.status >= 500 and reductions:
+                probe["note"] = CAP_ERROR_NOTE
         cap_probes.append(probe)
 
     # Ordering stability probe: re-fetch the first page.
@@ -247,7 +269,7 @@ def run_inventory(
     if pages:
         params = {
             "start": "0",
-            "limit": str(page_size),
+            "limit": str(size),
             "excludeChildren": "false",
             "sortBy": "startLocal",
             "sortOrder": "asc",
@@ -261,6 +283,9 @@ def run_inventory(
     pagination: dict[str, Any] = {
         "inventory_status": status,
         "page_size_requested": page_size,
+        "page_size_effective": size,
+        "page_size_reductions": reductions,
+        "page_size_reduction_count": len(reductions),
         "pages": pages,
         "duplicate_id_count": duplicates,
         "same_start_time_count": _same_start_time_count(distinct),
