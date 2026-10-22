@@ -175,6 +175,7 @@ def original_file_key(activity_id: str) -> str:
 
 
 _ACTIVITY_ID_PATTERN = re.compile(r"[0-9]+")
+_SEARCH_ITEM_POINTER = re.compile(r"/[0-9]+")
 _FAILURE_STATES = (STATE_UNAVAILABLE, STATE_FORBIDDEN, STATE_FAILED)
 _T = TypeVar("_T")
 
@@ -460,3 +461,51 @@ class ArchiveWriter:
             return fetch_event_id
 
         return self._run(work)
+
+    def record_search_item(
+        self, *, activity_id: str, search_page_payload_id: int, json_pointer: str
+    ) -> None:
+        """Point an activity's ``search_item`` resource at an item in a search page payload."""
+        _validate_activity_id(activity_id)
+        if not isinstance(json_pointer, str) or not _SEARCH_ITEM_POINTER.fullmatch(json_pointer):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise ValueError("json_pointer must match ^/\\d+$")
+        now = self._now()
+
+        def work(conn: sqlite3.Connection) -> None:
+            if (
+                conn.execute(
+                    "SELECT 1 FROM activity_archive WHERE activity_id = ?", (activity_id,)
+                ).fetchone()
+                is None
+            ):
+                raise StorageError(f"Activity {activity_id} not found in archive")
+            if (
+                conn.execute(
+                    "SELECT 1 FROM raw_payloads WHERE id = ? AND kind = ?",
+                    (search_page_payload_id, KIND_SEARCH_PAGE),
+                ).fetchone()
+                is None
+            ):
+                raise StorageError(f"Payload {search_page_payload_id} is not a search_page payload")
+            conn.execute(
+                "INSERT INTO activity_resources (activity_id, kind, current_payload_id,"
+                " json_pointer, state, last_attempt_at_utc, last_success_at_utc,"
+                " next_retry_at_utc, error_code) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)"
+                " ON CONFLICT (activity_id, kind) DO UPDATE SET"
+                " current_payload_id = excluded.current_payload_id,"
+                " json_pointer = excluded.json_pointer, state = excluded.state,"
+                " last_attempt_at_utc = excluded.last_attempt_at_utc,"
+                " last_success_at_utc = excluded.last_success_at_utc,"
+                " next_retry_at_utc = NULL, error_code = NULL",
+                (
+                    activity_id,
+                    ACTIVITY_RESOURCE_KIND_SEARCH_ITEM,
+                    search_page_payload_id,
+                    json_pointer,
+                    STATE_AVAILABLE,
+                    now,
+                    now,
+                ),
+            )
+
+        self._run(work)
