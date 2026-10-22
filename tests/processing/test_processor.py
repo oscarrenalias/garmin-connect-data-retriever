@@ -11,7 +11,9 @@ import pytest
 
 from garmin_archive.processing import inputs as inputs_module
 from garmin_archive.processing.batch import process_pending
+from garmin_archive.processing.inputs import processor_version
 from garmin_archive.processing.processor import process_activity
+from garmin_archive.processing.sports import SPORTS_VERSION
 from helpers.archive_seed import (
     FixedClock,
     raw_payload_digest,
@@ -134,7 +136,7 @@ def test_run_row_records_clock_version_and_provenance(
     assert run["status"] == "processed"
     assert run["started_at_utc"] == "2026-06-25T06:42:28.000000Z"
     assert run["finished_at_utc"] == "2026-06-25T06:42:28.000000Z"
-    assert run["processor_version"].endswith("+sports2")
+    assert run["processor_version"] == processor_version()
     assert run["error_code"] is None
     assert run["warnings_json"] is None
     assert {r[0] for r in conn.execute("SELECT processing_run_id FROM activity_samples")} == {
@@ -293,13 +295,15 @@ def test_bumped_processor_version_reprocesses(
     )
     process_pending(conn, clock)
     assert process_pending(conn, clock).processed == 0
-    monkeypatch.setattr(inputs_module, "SPORTS_VERSION", "3")
+    old_version = processor_version()
+    bumped = f"{SPORTS_VERSION}-bumped"
+    monkeypatch.setattr(inputs_module, "SPORTS_VERSION", bumped)
     assert process_pending(conn, clock).processed == 1
     versions = [
         r[0] for r in conn.execute("SELECT processor_version FROM processing_runs ORDER BY id")
     ]
-    assert versions[0].endswith("+sports2")
-    assert versions[1].endswith("+sports3")
+    assert versions[0] == old_version
+    assert versions[1].endswith(f"+sports{bumped}")
     assert _counts(conn)["activity_samples"] == 100  # no duplicates
 
 

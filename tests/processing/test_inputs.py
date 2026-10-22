@@ -10,6 +10,7 @@ from garmin_archive.processing.inputs import (
     pending_activity_ids,
     processor_version,
 )
+from garmin_archive.processing.sports import SPORTS_VERSION
 from helpers.archive_seed import (
     FixedClock,
     record_summary,
@@ -37,7 +38,7 @@ def test_fingerprint_depends_on_each_input() -> None:
 
 
 def test_processor_version_includes_sports_version() -> None:
-    assert processor_version().endswith("+sports2")
+    assert processor_version().endswith(f"+sports{SPORTS_VERSION}")
 
 
 def test_load_inputs_with_everything(conn: sqlite3.Connection, clock: FixedClock) -> None:
