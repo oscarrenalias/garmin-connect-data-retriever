@@ -25,7 +25,7 @@ def test_init_creates_then_is_idempotent(
     assert code == 0
     assert doc["status"] == "ok"
     assert doc["data"]["created"] is True
-    assert doc["data"]["schema_version"] == 3
+    assert doc["data"]["schema_version"] == 4
     assert doc["data"]["db_path"] == str(db.resolve())
     code, doc = _run(capsys, ["--db", str(db), "init"])
     assert code == 0

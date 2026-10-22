@@ -216,7 +216,7 @@ def test_pool_swim_lengths_and_metrics(conn: sqlite3.Connection, clock: FixedClo
     assert metrics["avg_swolf"] == 39.0
     assert metrics["active_swim_duration_s"] == pytest.approx(20.5 + 21.0 + 30.0 + 28.0)
     assert metrics["recorded_rest_duration_s"] == pytest.approx(25.0)
-    assert metrics["length_coverage_status"] == "complete"
+    assert metrics["length_coverage_status"] == "partial"  # 4 FIT active lengths vs 55 in summary
 
 
 def test_pool_swim_active_lengths_counted_from_rows(
@@ -455,10 +455,10 @@ def test_replaced_file_without_lengths_drops_old_length_rows(
     assert _row(conn, "swimming_metrics")["recorded_rest_duration_s"] == pytest.approx(0.0)
 
 
-def test_processor_version_reflects_sports2(conn: sqlite3.Connection, clock: FixedClock) -> None:
+def test_processor_version_reflects_sports3(conn: sqlite3.Connection, clock: FixedClock) -> None:
     seed_activity(conn, clock, AID, summary=summary_copy("running-1", AID))
     result = process_activity(conn, AID, clock)
     version = conn.execute(
         "SELECT processor_version FROM processing_runs WHERE id = ?", (result.run_id,)
     ).fetchone()[0]
-    assert version.endswith("+sports2")
+    assert version.endswith("+sports3")

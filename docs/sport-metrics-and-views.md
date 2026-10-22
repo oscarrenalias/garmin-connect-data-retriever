@@ -9,7 +9,7 @@ Sport metric tables are keyed by `activity_id` (TEXT, PK and FK to `activities`)
 | Table | Grain | Columns and units |
 | --- | --- | --- |
 | `running_metrics` | One row per running activity | `avg_cadence_spm`, `max_cadence_spm` (steps/min), `avg_stride_length_m`, `avg_ground_contact_time_ms`, `avg_vertical_oscillation_cm`, `avg_vertical_ratio_pct`, `avg_power_w`, `max_power_w` |
-| `swimming_metrics` | One row per swim | `swim_environment` (`pool`, `open_water` or NULL), `pool_length_m` (pool only), `active_lengths`, `total_strokes`, `avg_swolf`, `avg_distance_per_stroke_m`, `avg_stroke_rate_spm`, `active_swim_duration_s`, `recorded_rest_duration_s`, `length_coverage_status` (`none` or `complete`) |
+| `swimming_metrics` | One row per swim | `swim_environment` (`pool`, `open_water` or NULL), `pool_length_m` (pool only), `active_lengths`, `total_strokes`, `avg_swolf`, `avg_distance_per_stroke_m`, `avg_stroke_rate_spm`, `active_swim_duration_s`, `recorded_rest_duration_s`, `length_coverage_status` (`none`, `partial` or `complete`) |
 | `cycling_metrics` | One row per cycling activity | `avg_cadence_rpm`, `max_cadence_rpm` (revolutions/min), `avg_power_w`, `max_power_w`, `normalized_power_w`, `training_stress_score`, `intensity_factor` |
 | `cardio_metrics` | One row per cardio activity | `steps`, `total_sets`, `active_sets`, `total_reps`, `active_set_duration_s`, `rest_set_duration_s` |
 | `swim_lengths` | One row per FIT length, idle included; PK `(activity_id, length_index)` | `lap_index` (NULL if no lap window matches), `start_at_utc`, `length_type`, `stroke_type`, `distance_m`, `timer_duration_s`, `elapsed_duration_s`, `stroke_count`, `avg_stroke_rate_spm`, `swolf` |
@@ -19,7 +19,7 @@ Sport metric tables are keyed by `activity_id` (TEXT, PK and FK to `activities`)
 - `swim_lengths` come from FIT `length` messages in message order. Idle lengths are kept; their `distance_m` is NULL, so they add no swimming distance. Active `distance_m` is the pool length.
 - `swolf` is derived (timer seconds plus strokes) and only set for active lengths with a valid timer time and a positive stroke count. `avg_swolf` in `swimming_metrics` is the value Garmin reports.
 - `active_swim_duration_s` and `recorded_rest_duration_s` are sums of length timer seconds by `length_type` (`active` / `idle`). They are never computed as elapsed minus timer. Both are NULL when the activity has no length records.
-- `length_coverage_status` is `complete` when length records exist and `none` otherwise. There is no `partial` state yet.
+- `length_coverage_status` is `none` without length records. It is `partial` when the active-length count differs from the summary `numberOfActiveLengths`, or when active-length distance differs from the summary distance by more than half a pool length (typically lengths corrected in Garmin Connect after recording). Otherwise it is `complete`. Per-length data reflects the device recording; for partial coverage, totals come from the (possibly edited) summary.
 - Open-water swims get no pool length and no synthetic lengths.
 
 ### Cadence unit rule
@@ -62,7 +62,6 @@ The implementation differs from SPEC §7.2–§7.4 in the following ways. §7.3a
 
 1. `running_metrics.avg_ground_contact_time_ms` is the implemented name. SPEC §7.2 says `avg_ground_contact_ms`.
 2. `swimming_metrics.swim_environment` allows `pool`, `open_water` or NULL. SPEC §7.2 lists `unknown`.
-3. `swimming_metrics.length_coverage_status` allows `none` or `complete`. SPEC §7.3 asks for `partial` when length records don't explain the session. That is not implemented.
 4. `avg_distance_per_stroke_m` reads `averageStrokeDistance`. SPEC §7.3 names `strokeDistance`. `avg_stroke_rate_spm` reads `averageSwimCadence`, which the SPEC mapping table doesn't list.
 5. `swim_lengths` has no `session_index` in its key. §7.3a covers this for laps, samples and lengths.
 6. `v_archive_coverage` (SPEC §7.4) is not built. §7.3a covers this. The metrics tables and views do not yet carry the `metric_provenance` rows from SPEC §7.2.

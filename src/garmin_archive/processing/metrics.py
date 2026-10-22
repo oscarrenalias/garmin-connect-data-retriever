@@ -103,6 +103,31 @@ def _length_time_s(lengths: Sequence[Mapping[str, Any]], length_type: str) -> fl
     return float(sum(values)) if values else None
 
 
+def _length_coverage(
+    lengths: Sequence[Mapping[str, Any]],
+    summary_distance_m: float | int | None,
+    summary_active_lengths: float | int | None,
+    pool_length_m: float | None,
+) -> str:
+    """``none`` without length rows, ``partial`` when they don't explain the summary."""
+    if not lengths:
+        return "none"
+    active = [row for row in lengths if row.get("length_type") == "active"]
+    if summary_active_lengths is not None and len(active) != summary_active_lengths:
+        return "partial"
+    if summary_distance_m is not None:
+        distances = [
+            value
+            for row in active
+            if not isinstance(value := row.get("distance_m"), bool)
+            and isinstance(value, int | float)
+        ]
+        tolerance = (pool_length_m or 0.0) / 2
+        if abs(sum(distances) - summary_distance_m) > tolerance:
+            return "partial"
+    return "complete"
+
+
 def swimming_metrics_row(
     type_key: str,
     summary: Mapping[str, Any],
@@ -135,7 +160,9 @@ def swimming_metrics_row(
         "avg_stroke_rate_spm": _number(dto, "averageSwimCadence"),
         "active_swim_duration_s": _length_time_s(lengths, "active") if has_lengths else None,
         "recorded_rest_duration_s": _length_time_s(lengths, "idle") if has_lengths else None,
-        "length_coverage_status": "complete" if has_lengths else "none",
+        "length_coverage_status": _length_coverage(
+            lengths, _number(dto, "distance"), active_lengths, pool_length_m
+        ),
     }
 
 
