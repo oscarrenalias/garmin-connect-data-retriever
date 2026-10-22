@@ -205,3 +205,53 @@ def test_401_renewal_does_not_consume_retry_budget():
     client, sleeps = make_recording_client(_data_handler(responses, calls))
     assert client._request("GET", "/a").status == 200
     assert sleeps == [1.0]
+
+
+def test_search_sends_exactly_fixed_params():
+    calls: list[httpx.Request] = []
+    client, _ = make_recording_client(_data_handler([httpx.Response(200, text="[]")], calls))
+    resp = client.search_activities(20, 10)
+    assert resp.body == b"[]"
+    assert calls[0].url.path == "/activitylist-service/activities/search/activities"
+    assert dict(calls[0].url.params) == {
+        "excludeChildren": "false",
+        "sortBy": "startLocal",
+        "sortOrder": "asc",
+        "start": "20",
+        "limit": "10",
+    }
+
+
+def test_search_max_attempts_override():
+    calls: list[httpx.Request] = []
+    client, _ = make_recording_client(_data_handler([httpx.Response(500)], calls))
+    with pytest.raises(TransportError):
+        client.search_activities(0, 10, max_attempts=2)
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get_activity", "/activity-service/activity/123"),
+        ("get_activity_workouts", "/activity-service/activity/123/workouts"),
+        ("download_original_file", "/download-service/files/activity/123"),
+    ],
+)
+def test_per_activity_paths(method, path):
+    calls: list[httpx.Request] = []
+    client, _ = make_recording_client(_data_handler([httpx.Response(200, text="{}")], calls))
+    getattr(client, method)("123")
+    assert calls[0].method == "GET"
+    assert calls[0].url.path == path
+    assert not calls[0].url.query
+
+
+def test_zip_body_returned_byte_identical():
+    payload = b"PK\x03\x04\x00\xff\xfe binary \x00\x80"
+    calls: list[httpx.Request] = []
+    resp_in = httpx.Response(200, content=payload, headers={"Content-Type": "application/zip"})
+    client, _ = make_recording_client(_data_handler([resp_in], calls))
+    resp = client.download_original_file("9")
+    assert resp.body == payload
+    assert resp.content_type == "application/zip"

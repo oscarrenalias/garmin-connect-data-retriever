@@ -18,6 +18,7 @@ from garmin_archive.models import (
 
 BASE_URL = "https://personal.connectapi.garmin.com"
 TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token"
+SEARCH_PATH = "/activitylist-service/activities/search/activities"
 DEFAULT_MAX_ATTEMPTS = 5
 MAX_RETRY_AFTER_SECONDS = 300
 BACKOFF_BASE_SECONDS = 1.0
@@ -197,3 +198,33 @@ class GarminApiClient:
                 continue
             self._raise_for_status(response, path)
             return response
+
+    def search_activities(
+        self, start: int, limit: int, *, max_attempts: int | None = None
+    ) -> ApiResponse:
+        """GET one page of the activity search (SPEC §2.2), sorted by start ascending."""
+        params = {
+            "excludeChildren": "false",
+            "sortBy": "startLocal",
+            "sortOrder": "asc",
+            "start": str(start),
+            "limit": str(limit),
+        }
+        return self._request(
+            "GET",
+            SEARCH_PATH,
+            params,
+            max_attempts=DEFAULT_MAX_ATTEMPTS if max_attempts is None else max_attempts,
+        )
+
+    def get_activity(self, activity_id: str) -> ApiResponse:
+        """GET the activity summary."""
+        return self._request("GET", f"/activity-service/activity/{activity_id}")
+
+    def get_activity_workouts(self, activity_id: str) -> ApiResponse:
+        """GET the workouts linked to an activity."""
+        return self._request("GET", f"/activity-service/activity/{activity_id}/workouts")
+
+    def download_original_file(self, activity_id: str) -> ApiResponse:
+        """GET the original activity file (typically a ZIP); bytes are returned untouched."""
+        return self._request("GET", f"/download-service/files/activity/{activity_id}")
