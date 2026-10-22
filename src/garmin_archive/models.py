@@ -95,6 +95,14 @@ class ContractError(ApiTransportError):
     default_retryable = False
 
 
+class InvalidQueryError(GarminArchiveError):
+    code = "INVALID_QUERY"
+
+
+class QueryTimeoutError(GarminArchiveError):
+    code = "QUERY_TIMEOUT"
+
+
 class Clock(Protocol):
     """Injectable source of the current time."""
 
