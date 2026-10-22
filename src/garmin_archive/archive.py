@@ -27,6 +27,9 @@ RESOURCE_KINDS: tuple[str, ...] = (
     KIND_WORKOUTS,
     KIND_ORIGINAL_FILE,
 )
+IMPORT_METHOD = "IMPORT"
+FORM_CONTENT_TYPE = "application/vnd.ant.fit"
+FORM_IMPORT_KEY_PATTERN = re.compile(r"^imported_file:form:[0-9a-f]{16}$")
 RAW_PAYLOAD_KINDS: tuple[str, ...] = (*RESOURCE_KINDS, KIND_IMPORTED_FILE)
 
 # activity_resources.kind values (0001_archive.sql).
@@ -230,6 +233,16 @@ class RecordResult:
     fetch_event_id: int
     is_new_payload: bool
     sha256: str
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    """Outcome of ``ArchiveWriter.record_import``."""
+
+    payload_id: int
+    resource_key: str
+    sha256: str
+    is_duplicate: bool
 
 
 class ArchiveWriter:
@@ -525,6 +538,55 @@ class ArchiveWriter:
                     (activity_id, kind, payload_id, json_pointer, resource_state, now, now),
                 )
             return RecordResult(payload_id, fetch_event_id, is_new, sha256)
+
+        return self._run(work)
+
+    def record_import(self, *, body: bytes, filename: str) -> ImportResult:
+        """Store an imported FORM FIT file, deduplicated by content hash.
+
+        The key is ``imported_file:form:<sha256[:16]>``. A new key inserts one raw payload
+        (``activity_id`` NULL) and one ``IMPORT`` fetch event whose path is ``filename``; an
+        existing key writes nothing and reports ``is_duplicate=True``. Never touches
+        ``activity_archive`` or ``activity_resources``.
+        """
+        sha256, byte_count = _sha256_and_size(body)
+        resource_key = f"imported_file:form:{sha256[:16]}"
+        if not FORM_IMPORT_KEY_PATTERN.fullmatch(resource_key):
+            raise ValueError(f"invalid imported_file resource key: {resource_key!r}")
+        body_text, encoding = _derive_body_text(FORM_CONTENT_TYPE, body)
+        now = self._now()
+
+        def work(conn: sqlite3.Connection) -> ImportResult:
+            existing = conn.execute(
+                "SELECT id FROM raw_payloads WHERE resource_key = ?", (resource_key,)
+            ).fetchone()
+            if existing is not None:
+                return ImportResult(int(existing[0]), resource_key, sha256, True)
+            payload_id = conn.execute(
+                "INSERT INTO raw_payloads (resource_key, activity_id, kind, content_type,"
+                " encoding, body_text, body_blob, sha256, byte_count, first_seen_at_utc)"
+                " VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    resource_key,
+                    KIND_IMPORTED_FILE,
+                    FORM_CONTENT_TYPE,
+                    encoding,
+                    body_text,
+                    body,
+                    sha256,
+                    byte_count,
+                    now,
+                ),
+            ).lastrowid
+            assert payload_id is not None
+            conn.execute(
+                "INSERT INTO fetch_events (sync_run_id, resource_key, method, path,"
+                " request_params_json, fetched_at_utc, http_status, payload_id, etag,"
+                " last_modified, error_code) VALUES (NULL, ?, ?, ?, NULL, ?, NULL, ?, NULL,"
+                " NULL, NULL)",
+                (resource_key, IMPORT_METHOD, filename, now, payload_id),
+            )
+            return ImportResult(payload_id, resource_key, sha256, False)
 
         return self._run(work)
 

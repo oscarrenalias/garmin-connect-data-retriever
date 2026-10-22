@@ -1169,3 +1169,64 @@ def test_batch_rolls_back_on_error(writer: ArchiveWriter, conn: sqlite3.Connecti
     assert not conn.in_transaction
     assert conn.execute("SELECT COUNT(*) FROM activity_archive").fetchone()[0] == 0
     _activity(writer)  # writer is usable after rollback
+
+
+# --- record_import ----------------------------------------------------------------------
+
+
+def test_record_import_stores_exact_bytes(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
+    body = b"\x0e\x10FIT\x00\xff binary"
+    result = writer.record_import(body=body, filename="swim.fit")
+    sha = hashlib.sha256(body).hexdigest()
+    assert not result.is_duplicate
+    assert result.sha256 == sha
+    assert result.resource_key == f"imported_file:form:{sha[:16]}"
+    row = conn.execute(
+        "SELECT kind, activity_id, content_type, body_blob, sha256, byte_count"
+        " FROM raw_payloads WHERE id = ?",
+        (result.payload_id,),
+    ).fetchone()
+    assert row[0] == "imported_file"
+    assert row[1] is None
+    assert row[2] == "application/vnd.ant.fit"
+    assert hashlib.sha256(bytes(row[3])).hexdigest() == sha
+    assert row[4] == sha
+    assert row[5] == len(body)
+    event = conn.execute(
+        "SELECT method, path, payload_id, resource_key FROM fetch_events"
+    ).fetchall()
+    assert event == [("IMPORT", "swim.fit", result.payload_id, result.resource_key)]
+
+
+def test_record_import_duplicate_writes_nothing(
+    writer: ArchiveWriter, conn: sqlite3.Connection
+) -> None:
+    first = writer.record_import(body=b"abc", filename="a.fit")
+    before = _counts(conn)
+    second = writer.record_import(body=b"abc", filename="b.fit")
+    assert second.is_duplicate
+    assert second.payload_id == first.payload_id
+    assert _counts(conn) == before
+
+
+def test_record_import_does_not_touch_activity_tables(
+    writer: ArchiveWriter, conn: sqlite3.Connection
+) -> None:
+    writer.record_import(body=b"abc", filename="a.fit")
+    assert _counts(conn)[2:] == (0, 0)
+
+
+def test_record_response_still_rejects_imported_file(writer: ArchiveWriter) -> None:
+    with pytest.raises(ValueError, match="imported_file"):
+        writer.record_response(
+            resource_key="imported_file:form:0123456789abcdef",
+            kind="imported_file",
+            activity_id=None,
+            sync_run_id=None,
+            method="GET",
+            path="/x",
+            request_params=None,
+            http_status=200,
+            content_type=None,
+            body=b"x",
+        )
