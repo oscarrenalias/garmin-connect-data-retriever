@@ -12,9 +12,11 @@ from garmin_archive.models import (
     ContractError,
     DatabaseNotFoundError,
     GarminArchiveError,
+    InvalidQueryError,
     MigrationChecksumError,
     MissingApiKeyError,
     NotInitializedError,
+    QueryTimeoutError,
     RateLimitError,
     SchemaVersionError,
     StorageError,
@@ -42,6 +44,8 @@ from garmin_archive.models import (
         (TransportError, "TRANSPORT_ERROR", ApiTransportError),
         (RateLimitError, "RATE_LIMITED", ApiTransportError),
         (ContractError, "CONTRACT_ERROR", ApiTransportError),
+        (InvalidQueryError, "INVALID_QUERY", GarminArchiveError),
+        (QueryTimeoutError, "QUERY_TIMEOUT", GarminArchiveError),
     ],
 )
 def test_error_codes_and_hierarchy(cls: type[GarminArchiveError], code: str, parent: type) -> None:

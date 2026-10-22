@@ -10,6 +10,8 @@ from garmin_archive.models import (
     ApiAuthError,
     ApiTransportError,
     GarminArchiveError,
+    InvalidQueryError,
+    QueryTimeoutError,
     StorageError,
 )
 
@@ -59,6 +61,10 @@ def exit_code_for(exc: BaseException) -> int:
         return 3
     if isinstance(exc, ApiTransportError):
         return 4
+    if isinstance(exc, InvalidQueryError):
+        return 2
+    if isinstance(exc, QueryTimeoutError):
+        return 8
     if isinstance(exc, StorageError):
         return 5
     if isinstance(exc, GarminArchiveError):

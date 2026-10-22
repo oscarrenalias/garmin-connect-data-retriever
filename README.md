@@ -154,6 +154,71 @@ it is only a fallback source. Consequences: new or changed payloads and a new pa
 `SPORTS_VERSION` trigger reprocessing; a `partial` run with unchanged inputs is not retried; a
 `failed` run is retried, as it never counts as a successful run.
 
+### Querying the archive: `schema`, `describe`, `sample` and `sql`
+
+These four commands are local only: they make no network calls and need no credentials. They
+require an existing database (a missing one is a storage error, exit 5) and always emit JSON.
+
+```bash
+garmin-archive schema                                  # queryable tables/views and schema version
+garmin-archive describe v_running                      # columns, grain, row count
+garmin-archive sample activities --limit 3             # first rows, deterministic order
+garmin-archive sql --query "SELECT type_key, COUNT(*) AS n FROM activities GROUP BY type_key"
+garmin-archive sql --query "SELECT * FROM activities WHERE local_date >= :since" \
+  --params '{"since": "2026-01-01"}' --limit 100 --timeout 5
+```
+
+| Command | Behavior |
+| ------- | -------- |
+| `schema` | Lists every queryable object present in the database, with kind, description, grain and columns (`name`, `type`, `pk`), plus the schema version |
+| `describe NAME` | Same details for one object, plus `row_count` |
+| `sample NAME [--limit N]` | First `N` rows (default 5, maximum 100,000), ordered by primary key, else `rowid` (tables), else the first column (views) |
+| `sql --query SQL` | Runs one read-only statement. `--params` is a JSON object of named parameters bound separately from the SQL (`:name` in the query); `--limit` caps returned rows; `--timeout` is the execution budget in seconds |
+
+**Queryable objects.** Only an explicit allowlist can be read: the derived tables
+(`activities`, `activity_sessions`, `activity_laps`, `activity_samples`, `activity_sets`, and the
+per-sport metric tables), the `v_*` views, and the archive tables `raw_payloads`,
+`activity_archive`, `activity_resources` and `sync_runs`. `schema` shows what exists in your
+database. `describe` and `sample` reject any other name (`INVALID_QUERY`).
+
+**Security model.** Queries run on a separate connection with `PRAGMA query_only=ON` and an
+SQLite authorizer that denies writes, DDL, `ATTACH`, transaction control, `PRAGMA`, extension
+loading and reads of anything outside the allowlist. Exactly one statement is allowed (a `SELECT`,
+including `WITH`, joins, window and JSON functions). Parameters are never interpolated into the
+SQL. Anything the authorizer or SQLite rejects is an invalid query (`INVALID_QUERY`, exit 2).
+
+**Limits.** Defaults: 5,000 rows, 10 seconds. `--limit` accepts 1 to 100,000 and is applied even
+if the query has no `LIMIT` or a larger one. `--timeout` must be positive. The serialized rows
+are also capped at 10 MiB. When either row or size limits cut the result off, `meta.truncated`
+is `true` and the JSON stays valid.
+
+**Result shape.** Tabular results follow [SPEC §9](docs/SPEC.md):
+
+```json
+{
+  "status": "ok",
+  "columns": ["type_key", "n"],
+  "rows": [["running", 12]],
+  "meta": {"row_count": 1, "truncated": false, "limit_applied": 5000,
+           "execution_ms": 3, "schema_version": 4, "output_version": 1}
+}
+```
+
+NULL stays `null`. BLOB values are never dumped: a BLOB cell is `{"type": "blob", "bytes": N}`.
+Non-finite floats become `null`. Raw JSON text (for example `raw_payloads.body_text`) can be
+queried with SQLite JSON functions. `schema` and `describe` return `status`, `data` and `meta`
+instead of columns and rows.
+
+| Exit code | Meaning |
+| --------- | ------- |
+| 0 | Success (an empty result is a success) |
+| 2 | `INVALID_QUERY` or `INVALID_ARGUMENT`: not a single read-only statement, denied operation, unknown object, bad `--params` JSON, `--limit` out of range, non-positive `--timeout` |
+| 5 | Storage failure: missing or uninitialized database |
+| 8 | Query timeout (`QUERY_TIMEOUT`) |
+
+In the library, the same operations are `ArchiveClient.schema()`, `.describe(name)`,
+`.sample(name, limit=5)` and `.query(sql, parameters=None, limit=5000, timeout_s=10.0)`.
+
 ### API key and auth commands
 
 Commands that call Garmin need a Personal API key. The key is read from, in order:
@@ -239,9 +304,10 @@ Implemented so far (full table in [SPEC §9](docs/SPEC.md)):
 | 5 | Storage failure (`StorageError` and subclasses, such as `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`, or a missing or uninitialized database) |
 | 6 | `update` finished `partial`: some resources are `failed` or `pending`, or discovery was incomplete; run `update` again |
 | 7 | `reprocess` finished with at least one failed activity |
+| 8 | `sql` query exceeded its timeout (`QUERY_TIMEOUT`) |
 | 130 | Interrupted (Ctrl-C) |
 
-Code 8 is reserved for a later feature. `update` uses 0, 6 and 130 for run outcomes and 3, 4 and 5 for failures (4 also covers an API error before anything was archived).
+Code 8 is the query timeout. `update` uses 0, 6 and 130 for run outcomes and 3, 4 and 5 for failures (4 also covers an API error before anything was archived).
 
 ### Storage notes
 

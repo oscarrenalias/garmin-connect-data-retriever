@@ -5,6 +5,7 @@ import stat
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -17,6 +18,7 @@ from garmin_archive import (
     InitResult,
     NotInitializedError,
 )
+from garmin_archive.models import InvalidQueryError
 from garmin_archive.storage.lock import writer_lock
 from garmin_archive.storage.migrations import PackagedMigrations
 
@@ -120,6 +122,63 @@ def test_close_is_idempotent(tmp_path: Path) -> None:
     client = _client(tmp_path / "archive.db")
     client.close()
     client.close()
+
+
+def _initialized(tmp_path: Path) -> ArchiveClient:
+    client = _client(tmp_path / "archive.db")
+    client.initialize()
+    return client
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: c.schema(),
+        lambda c: c.describe("activities"),
+        lambda c: c.sample("activities"),
+        lambda c: c.query("SELECT 1"),
+    ],
+)
+def test_read_methods_missing_db_create_nothing(tmp_path: Path, call: Any) -> None:
+    with pytest.raises(DatabaseNotFoundError):
+        call(_client(tmp_path / "missing.db"))
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_schema_describe_sample_shapes(tmp_path: Path) -> None:
+    client = _initialized(tmp_path)
+    schema = client.schema()
+    assert schema["status"] == "ok"
+    assert schema["data"]["objects"]
+    name = schema["data"]["objects"][0]["name"]
+    described = client.describe(name)["data"]
+    assert described["name"] == name
+    assert described["row_count"] == 0
+    sampled = client.sample(name, limit=2)
+    assert sampled["rows"] == []
+    assert sampled["meta"]["limit_applied"] == 2
+
+
+def test_query_returns_tabular_dict(tmp_path: Path) -> None:
+    client = _initialized(tmp_path)
+    result = client.query("SELECT :a AS a, 2 AS b", {"a": 1})
+    assert result["status"] == "ok"
+    assert result["columns"] == ["a", "b"]
+    assert result["rows"] == [[1, 2]]
+    assert result["meta"]["schema_version"] == _LATEST
+    assert result["meta"]["limit_applied"] == 5000
+
+
+def test_query_rejects_writes(tmp_path: Path) -> None:
+    client = _initialized(tmp_path)
+    with pytest.raises(InvalidQueryError):
+        client.query("DELETE FROM schema_migrations")
+
+
+def test_read_methods_need_no_network_or_credentials(tmp_path: Path) -> None:
+    # The client is built without any HTTP client or credential provider.
+    client = _initialized(tmp_path)
+    assert client.query("SELECT 1 AS x")["rows"] == [[1]]
 
 
 def test_reexports() -> None:
