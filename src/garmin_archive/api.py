@@ -35,6 +35,17 @@ class ApiResponse:
     retry_after: str | None = None
 
 
+def search_params(start: int, limit: int) -> dict[str, str]:
+    """Query parameters for one activity-search page."""
+    return {
+        "excludeChildren": "false",
+        "sortBy": "startLocal",
+        "sortOrder": "asc",
+        "start": str(start),
+        "limit": str(limit),
+    }
+
+
 def default_http_client() -> httpx.Client:
     """Build the default client: no redirect following and finite timeouts."""
     return httpx.Client(follow_redirects=False, timeout=DEFAULT_TIMEOUT)
@@ -207,13 +218,7 @@ class GarminApiClient:
         self, start: int, limit: int, *, max_attempts: int | None = None
     ) -> ApiResponse:
         """GET one page of the activity search (SPEC §2.2), sorted by start ascending."""
-        params = {
-            "excludeChildren": "false",
-            "sortBy": "startLocal",
-            "sortOrder": "asc",
-            "start": str(start),
-            "limit": str(limit),
-        }
+        params = search_params(start, limit)
         return self._request(
             "GET",
             SEARCH_PATH,
