@@ -145,3 +145,24 @@ def test_sets_ten_rows_and_category_forms() -> None:
 def test_set_category_list_scalar_and_empty() -> None:
     rows = set_rows([{"category": ["push_up", "x"]}, {"category": "curl"}, {"category": []}, {}])
     assert [r["category"] for r in rows] == ["push_up", "curl", None, None]
+
+
+def test_running_cadence_is_doubled_with_fractional_part() -> None:
+    row = sample_rows([{"cadence": 74, "fractional_cadence": 0.125}], running=True)[0]
+    assert (row["cadence"], row["cadence_unit"]) == (pytest.approx(148.25), "spm")
+
+
+def test_running_cadence_without_fractional_part() -> None:
+    row = sample_rows([{"cadence": 74}], running=True)[0]
+    assert (row["cadence"], row["cadence_unit"]) == (148.0, "spm")
+
+
+def test_non_running_cadence_stays_raw_and_ignores_fractional() -> None:
+    row = sample_rows([{"cadence": 74, "fractional_cadence": 0.125}])[0]
+    assert (row["cadence"], row["cadence_unit"]) == (74, "fit_rpm")
+
+
+@pytest.mark.parametrize("running", [True, False])
+def test_missing_cadence_gives_null_cadence_and_unit(running: bool) -> None:
+    row = sample_rows([{"heart_rate": 100}], running=running)[0]
+    assert (row["cadence"], row["cadence_unit"]) == (None, None)

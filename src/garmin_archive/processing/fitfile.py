@@ -73,10 +73,11 @@ class FitMessages:
     laps: list[dict[str, Any]]
     records: list[dict[str, Any]]
     sets: list[dict[str, Any]]
+    lengths: list[dict[str, Any]]
 
 
 def decode_fit(data: bytes) -> FitMessages:
-    """Decode FIT ``data`` into session, lap, record and set message lists.
+    """Decode FIT ``data`` into session, lap, record, set and length message lists.
 
     SDK errors and exceptions are raised as ``FitUnavailableError``.
     """
@@ -95,4 +96,5 @@ def decode_fit(data: bytes) -> FitMessages:
         laps=list(messages.get("lap_mesgs", [])),
         records=list(messages.get("record_mesgs", [])),
         sets=list(messages.get("set_mesgs", [])),
+        lengths=list(messages.get("length_mesgs", [])),
     )
