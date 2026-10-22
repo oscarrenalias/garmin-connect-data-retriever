@@ -149,9 +149,9 @@ def test_schema_describe_sample_shapes(tmp_path: Path) -> None:
     client = _initialized(tmp_path)
     schema = client.schema()
     assert schema["status"] == "ok"
-    assert schema["objects"]
-    name = schema["objects"][0]["name"]
-    described = client.describe(name)
+    assert schema["data"]["objects"]
+    name = schema["data"]["objects"][0]["name"]
+    described = client.describe(name)["data"]
     assert described["name"] == name
     assert described["row_count"] == 0
     sampled = client.sample(name, limit=2)
