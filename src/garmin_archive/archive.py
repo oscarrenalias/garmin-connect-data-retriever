@@ -202,6 +202,26 @@ def _validate_resource_state(state: str) -> None:
         raise ValueError(f"invalid resource_state: {state!r}")
 
 
+def _content_equivalent(
+    kind: str, new_body: bytes, new_text: str | None, old_body: bytes, old_text: str | None
+) -> bool:
+    """True when two bodies differ only in serialization (parsed JSON or ZIP members equal)."""
+    if new_text is not None and old_text is not None:
+        try:
+            return json.loads(new_text) == json.loads(old_text)
+        except ValueError:
+            return False
+    if kind == KIND_ORIGINAL_FILE and new_text is None and old_text is None:
+        # Deferred: the processing package imports this module.
+        from garmin_archive.processing.fitfile import FitUnavailableError, zip_member_contents
+
+        try:
+            return zip_member_contents(new_body) == zip_member_contents(old_body)
+        except FitUnavailableError:
+            return False
+    return False
+
+
 @dataclass(frozen=True)
 class RecordResult:
     """Outcome of ``ArchiveWriter.record_response``."""
@@ -411,8 +431,10 @@ class ArchiveWriter:
         """Store a response body (deduplicated) and its fetch event atomically.
 
         The body is stored byte-for-byte; an identical ``(resource_key, sha256)`` reuses the
-        existing payload row (``is_new_payload=False``), while changed content adds a new
-        version. A fetch event is always appended and, for activity-scoped kinds, the
+        existing payload row (``is_new_payload=False``), as does a body whose content equals
+        the resource's latest version (same parsed JSON, or same ZIP members) but whose bytes
+        differ; the first-seen bytes stay authoritative. Changed content adds a new version.
+        A fetch event is always appended and, for activity-scoped kinds, the
         ``activity_resources`` row is pointed at the payload. Raises ``ValueError`` for
         invalid keys, kinds, states or credential-like request params (before any write)
         and ``StorageError`` if the activity is not archived.
@@ -437,6 +459,16 @@ class ArchiveWriter:
                 "SELECT id FROM raw_payloads WHERE resource_key = ? AND sha256 = ?",
                 (resource_key, sha256),
             ).fetchone()
+            if existing is None:
+                latest = conn.execute(
+                    "SELECT id, body_text, body_blob FROM raw_payloads WHERE resource_key = ?"
+                    " ORDER BY id DESC LIMIT 1",
+                    (resource_key,),
+                ).fetchone()
+                if latest is not None and _content_equivalent(
+                    kind, body, body_text, bytes(latest[2]), latest[1]
+                ):
+                    existing = latest
             if existing is not None:
                 payload_id = int(existing[0])
                 is_new = False

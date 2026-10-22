@@ -276,13 +276,37 @@ def test_recent_activities_are_refetched_and_deduplicated(archive: Archive) -> N
     result = archive.update(fake)
     assert result.status == "complete"
     for aid in fake.activity_ids:
-        expected = 1 if aid in recent else 0
-        assert fake.count_for("summary", aid) == expected
-        assert fake.count_for("workouts", aid) == expected
-        assert fake.count_for("file", aid) == expected
+        assert fake.count_for("summary", aid) == (1 if aid in recent else 0)
+        assert fake.count_for("workouts", aid) == 0
+        assert fake.count_for("file", aid) == 0
     assert result.counters.downloaded == 0
-    assert result.counters.unchanged == 3 * len(recent)
+    assert result.counters.unchanged == len(recent)
     assert archive.payload_count() == payloads_before
+
+
+def test_changed_item_inside_recent_window_refetches_all_three(archive: Archive) -> None:
+    fake = FakeGarmin(60)
+    archive.update(fake)
+    changed = fake.activity_ids[-1]
+    fake.mutate_search_item(changed, syntheticChange=1)
+    fake.reset_counts()
+    archive.clock.current = fake.start_times[changed] + timedelta(days=1)
+    archive.update(fake)
+    for kind in ("summary", "workouts", "file"):
+        assert fake.count_for(kind, changed) == 1
+
+
+def test_unchanged_sync_against_regenerating_api_adds_no_payloads(archive: Archive) -> None:
+    fake = FakeGarmin(60)
+    fake.regenerate_bodies = True
+    archive.update(fake)
+    payloads = archive.payload_count()
+    fake.reset_counts()
+    archive.clock.current = fake.start_times[fake.activity_ids[-1]] + timedelta(days=1)
+    result = archive.update(fake, full=True)
+    assert fake.count("file") == 60
+    assert result.counters.downloaded == 0
+    assert archive.payload_count() == payloads
 
 
 # ---- 5. page-size fallback -------------------------------------------------------------

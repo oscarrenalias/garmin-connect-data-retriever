@@ -7,8 +7,10 @@ touches the network or the filesystem beyond reading the fixtures.
 
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
+import zipfile
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -89,6 +91,8 @@ class FakeGarmin:
         self.fail_above_limit: int | None = None
         self.page_cap: int | None = None
         self.reject_auth = False
+        # Re-serialize JSON and re-zip files differently on every request, like Garmin does.
+        self.regenerate_bodies = False
         self.rate_limit_from: int | None = None
         self.rate_limit_count: int | None = None
         self.on_request: Callable[[str, str | None, httpx.Request], None] | None = None
@@ -102,6 +106,7 @@ class FakeGarmin:
         self.search_limits: list[int] = []
         self.transaction_violations: list[tuple[str, str | None]] = []
         self.data_request_count = 0
+        self._regenerations = 0
 
         self._build(
             count,
@@ -290,12 +295,39 @@ class FakeGarmin:
         if aid not in self.summaries:
             return httpx.Response(404)
         if kind == "summary":
-            return self._json(self.summaries[aid])
+            return self._json(self._regenerated_json(self.summaries[aid]))
         if kind == "workouts":
-            return self._json(self.workouts[aid])
+            return self._json(self._regenerated_json(self.workouts[aid]))
         return httpx.Response(
-            200, content=self.files[aid], headers={"content-type": "application/zip"}
+            200,
+            content=self._regenerated_zip(self.files[aid]),
+            headers={"content-type": "application/zip"},
         )
+
+    def _regenerated_json(self, body: bytes) -> bytes:
+        """Same parsed content, different serialization on every call (when enabled)."""
+        if not self.regenerate_bodies:
+            return body
+        self._regenerations += 1
+        parsed = json.loads(body)
+        return json.dumps(
+            parsed, indent=self._regenerations % 7, sort_keys=self._regenerations % 2 == 0
+        ).encode("utf-8")
+
+    def _regenerated_zip(self, body: bytes) -> bytes:
+        """Same members, fresh member timestamp on every call (when enabled)."""
+        if not self.regenerate_bodies:
+            return body
+        self._regenerations += 1
+        out = io.BytesIO()
+        with (
+            zipfile.ZipFile(io.BytesIO(body)) as src,
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst,
+        ):
+            for info in src.infolist():
+                stamp = (2000 + self._regenerations % 50, 1, 1, 0, 0, 0)
+                dst.writestr(zipfile.ZipInfo(info.filename, stamp), src.read(info))
+        return out.getvalue()
 
     @staticmethod
     def _classify(path: str) -> tuple[str, str | None]:
@@ -354,4 +386,4 @@ class FakeGarmin:
             return httpx.Response(500)
         effective = limit if self.page_cap is None else min(limit, self.page_cap)
         page = self.search_items[start : start + effective]
-        return self._json(_dump(page) if page else b"[]")
+        return self._json(self._regenerated_json(_dump(page)) if page else b"[]")

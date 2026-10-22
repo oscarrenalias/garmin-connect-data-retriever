@@ -109,7 +109,7 @@ Keep received JSON/text unchanged in a TEXT field, not parsed and re-serialized.
 
 Capture whole search pages, detailed summaries, workout responses and original file downloads. Every activity links back to its search-page item using a JSON pointer. Authentication responses are explicitly excluded. Store only an allowlist of response metadata (content type, ETag, Last-Modified); never persist cookies or credentials.
 
-Changed resources create new immutable payload versions. Identical bodies for the same resource reuse the payload row, with a new fetch observation. Never delete archived records merely because a resource disappears upstream. Raw responses survive processing failures and schema changes.
+Changed resources create new immutable payload versions. Identical bodies for the same resource reuse the payload row, with a new fetch observation. v1 decision: a new version is stored only when content changes (parsed JSON, or ZIP member contents), not when only the bytes differ; Garmin re-serializes JSON and re-zips files on every download. Never delete archived records merely because a resource disappears upstream. Raw responses survive processing failures and schema changes.
 
 ### 5.2 Archive and operational tables
 
