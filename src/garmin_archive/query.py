@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from garmin_archive.models import InvalidQueryError, QueryTimeoutError
-from garmin_archive.output import OUTPUT_VERSION
+from garmin_archive.output import OUTPUT_VERSION, success
 from garmin_archive.storage.migrations import current_schema_version
 
 
@@ -324,3 +324,69 @@ def tabular_result(
             "output_version": OUTPUT_VERSION,
         },
     }
+
+
+def _object_dict(obj: QueryableObject) -> dict[str, Any]:
+    return {
+        "name": obj.name,
+        "kind": obj.kind,
+        "description": obj.description,
+        "grain": obj.grain,
+        "columns": [{"name": c.name, "type": c.type, "pk": c.pk} for c in obj.columns],
+    }
+
+
+def schema(conn: sqlite3.Connection) -> dict[str, Any]:
+    """List every registry object present in the live DB (non-tabular payload).
+
+    Must run on a trusted (not yet hardened) connection.
+    """
+    return success(
+        {
+            "schema_version": current_schema_version(conn),
+            "objects": [_object_dict(o) for o in list_queryable(conn)],
+        }
+    )
+
+
+def describe(conn: sqlite3.Connection, name: str) -> dict[str, Any]:
+    """Describe one registry object, including its row count."""
+    obj = lookup(conn, name)
+    count = conn.execute(f"SELECT COUNT(*) FROM {quote_identifier(obj.name)}").fetchone()[0]
+    data = _object_dict(obj)
+    data["row_count"] = int(count)
+    data["schema_version"] = current_schema_version(conn)
+    return success(data)
+
+
+def _sample_order_by(obj: QueryableObject) -> str:
+    pk = [c.name for c in obj.columns if c.pk]
+    if pk:
+        return ", ".join(quote_identifier(n) for n in pk)
+    if obj.kind == "table":
+        return "rowid"
+    return quote_identifier(obj.columns[0].name) if obj.columns else "1"
+
+
+def sample(
+    conn: sqlite3.Connection,
+    name: str,
+    limit: int = 5,
+    *,
+    output_budget: int = DEFAULT_OUTPUT_BUDGET,
+) -> dict[str, Any]:
+    """Return the first ``limit`` rows of a registry object in deterministic order.
+
+    Order: primary key columns, else ``rowid`` (tables), else the first column (views).
+    """
+    if isinstance(limit, bool) or not 1 <= limit <= MAX_LIMIT:
+        raise InvalidQueryError(f"limit must be an integer between 1 and {MAX_LIMIT}")
+    obj = lookup(conn, name)
+    sql = f"SELECT * FROM {quote_identifier(obj.name)} ORDER BY {_sample_order_by(obj)}"
+    result = run_query(conn, sql, None, limit=limit)
+    return tabular_result(
+        result,
+        limit_applied=limit,
+        schema_version=current_schema_version(conn),
+        output_budget=output_budget,
+    )
