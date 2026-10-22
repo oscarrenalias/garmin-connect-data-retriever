@@ -418,3 +418,28 @@ def test_leak_gate_skips_file_records_failure_and_exits_1(
     assert failed[0]["json_path"] == "$.planted"
     # The matched value is never recorded anywhere.
     _assert_absent([planted.encode()], _all_files(runner.fixtures), {"stdout": stdout})
+
+
+def test_raw_body_token_run_completes_without_leaking_token(tmp_path: Path) -> None:
+    """A text/plain bare-JWT token body proceeds; neither the token nor claim values leak."""
+    import base64
+
+    def seg(obj: dict[str, Any]) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
+
+    token = f"{seg({'alg': 'RS256'})}.{seg({'sub': 'SUB-VALUE-XYZ', 'iat': 10, 'exp': 70})}.sig-XYZ"
+    api = FakeGarminApi(token_body=token.encode())
+    runner = Runner(tmp_path, api)
+    result = runner.capture()
+    assert result.outcome == "complete"
+    report = runner.report()
+    assert report["token"]["token_field_source"] == "raw_body"
+    assert report["token"]["jwt"]["lifetime_s"] == 60
+    assert report["spec_2_3"]["1_token_and_header"] == "confirmed"
+    md = (runner.fixtures / "contract-report.md").read_text(encoding="utf-8")
+    assert "raw_body" in md and "lifetime_s" in md
+    _assert_absent(
+        [token.encode(), b"SUB-VALUE-XYZ", b"sig-XYZ"],
+        _all_files(runner.fixtures),
+        {"progress": "\n".join(runner.progress)},
+    )

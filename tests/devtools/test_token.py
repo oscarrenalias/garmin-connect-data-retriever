@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from typing import Any
 
@@ -146,3 +147,63 @@ def test_describe_token_body_non_object() -> None:
     assert expiry == {"ttl": 5}
     assert fields["a"] == {"type": "boolean"}
     assert strings == {"t": "x"}
+
+
+def _b64(obj: dict[str, Any]) -> str:
+    return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
+
+
+def _jwt() -> str:
+    header = _b64({"alg": "RS256", "typ": "JWT", "kid": "KID-SECRET"})
+    payload = _b64({"iss": "ISS-SECRET", "sub": "SUB-SECRET", "iat": 1000, "exp": 4600})
+    return f"{header}.{payload}.c2ln-SECRET"
+
+
+def _text(body: str) -> httpx.Response:
+    return httpx.Response(200, content=body.encode(), headers={"content-type": "text/plain"})
+
+
+def test_raw_body_jwt_token_is_used_and_described_without_values() -> None:
+    jwt = _jwt()
+    reqs: list[httpx.Request] = []
+    result = run(_text(jwt), requests=reqs)
+    assert result.outcome is None
+    assert result.token.get_secret_value() == jwt
+    report = result.token_report
+    assert report["token_field"] is None
+    assert report["token_field_source"] == "raw_body"
+    assert report["status"] == "confirmed"
+    assert report["body_length"] == len(jwt)
+    assert report["jwt_like"] is True
+    assert report["jwt"] == {
+        "header_keys": ["alg", "kid", "typ"],
+        "alg": "RS256",
+        "claim_names": ["exp", "iat", "iss", "sub"],
+        "lifetime_s": 3600,
+    }
+    assert result.header_convention["status"] == "confirmed"
+    assert reqs[1].headers["Authorization"] == f"Bearer {jwt}"
+    dumped = json.dumps([report, result.header_convention, result.note])
+    for secret in (jwt, "SECRET", "RS256-x"):
+        assert secret not in dumped
+
+
+def test_raw_body_is_stripped_and_non_jwt_has_no_jwt_section() -> None:
+    result = run(_text("  plain-token_1.2\n"))
+    assert result.outcome is None
+    assert result.token.get_secret_value() == "plain-token_1.2"
+    assert result.token_report["jwt_like"] is False
+    assert "jwt" not in result.token_report
+
+
+def test_raw_body_undecodable_jwt_records_decode_error() -> None:
+    result = run(_text("aaa.bbb.ccc"))
+    assert result.outcome is None
+    assert result.token_report["jwt"] == {"decode_error": True}
+
+
+def test_raw_body_with_inner_space_or_newline_needs_token_field() -> None:
+    for body in ("abc def", "abc\ndef", "", "   ", "a+b/c=", '"quoted"'):
+        result = run(_text(body))
+        assert result.outcome == "needs_token_field", body
+        assert result.token is None

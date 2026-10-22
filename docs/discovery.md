@@ -53,6 +53,11 @@ output never include the key, tokens or exception messages.
 If the token field cannot be detected, the run stops with outcome `needs_token_field`. Rerun
 with `--token-field`.
 
+If the token response is not a JSON object but its stripped body is a single line of `[A-Za-z0-9_.-]`
+characters (a bare token, as the live endpoint returns), the whole body is used as the token and
+recorded as `token_field_source: raw_body`. For JWT-like tokens only header key names, `alg`, claim
+names and `lifetime_s` are recorded, never values. Signatures are not verified.
+
 ### Exit codes
 
 | Code | Meaning |

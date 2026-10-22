@@ -6,7 +6,9 @@ itself are never written anywhere; the token lives in memory in a `SecretStr`.
 
 from __future__ import annotations
 
+import base64
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -46,6 +48,54 @@ def _json_type(value: object) -> str:
 
 def _jwt_like(value: str) -> bool:
     return len(value.split(".")) == 3
+
+
+_RAW_TOKEN_RE = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def raw_body_token(body: bytes) -> str | None:
+    """Return the stripped body when it looks like a bare token, else None."""
+    try:
+        text = body.decode("ascii").strip()
+    except UnicodeDecodeError:
+        return None
+    return text if _RAW_TOKEN_RE.fullmatch(text) else None
+
+
+def _decode_segment(segment: str) -> dict[str, Any] | None:
+    try:
+        raw = base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+        parsed: object = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return parsed  # pyright: ignore[reportUnknownVariableType]
+
+
+def describe_jwt(token: str) -> dict[str, Any]:
+    """Record JWT structure only: key and claim names, alg and lifetime. No values."""
+    header_part, payload_part, _ = token.split(".")
+    header = _decode_segment(header_part)
+    payload = _decode_segment(payload_part)
+    if header is None or payload is None:
+        return {"decode_error": True}
+    info: dict[str, Any] = {
+        "header_keys": sorted(header),
+        "claim_names": sorted(payload),
+    }
+    alg = header.get("alg")
+    if isinstance(alg, str):
+        info["alg"] = alg
+    exp, iat = payload.get("exp"), payload.get("iat")
+    if (
+        isinstance(exp, int)
+        and isinstance(iat, int)
+        and not isinstance(exp, bool)
+        and not isinstance(iat, bool)
+    ):
+        info["lifetime_s"] = exp - iat
+    return info
 
 
 def describe_token_body(
@@ -130,19 +180,30 @@ def acquire_token(
         report["fields"] = fields
         report["expiry_fields"] = expiry
 
-    if token_field is not None:
-        chosen, source = token_field, "explicit"
+    raw_token = raw_body_token(response.body) if body_length is not None else None
+    if raw_token is not None:
+        jwt_like = _jwt_like(raw_token)
+        report["token_field"] = None
+        report["token_field_source"] = "raw_body"
+        report["jwt_like"] = jwt_like
+        if jwt_like:
+            report["jwt"] = describe_jwt(raw_token)
+        report["status"] = "confirmed"
+        token = SecretStr(raw_token)
     else:
-        chosen, source = auto_token_field(list(strings)), "auto"
-    if chosen is None or chosen not in strings:
-        report["status"] = "unknown"
-        return TokenStepResult(
-            None, "needs_token_field", report, header, "rerun with --token-field"
-        )
-    report["token_field"] = chosen
-    report["token_field_source"] = source
-    report["status"] = "confirmed"
-    token = SecretStr(strings[chosen])
+        if token_field is not None:
+            chosen, source = token_field, "explicit"
+        else:
+            chosen, source = auto_token_field(list(strings)), "auto"
+        if chosen is None or chosen not in strings:
+            report["status"] = "unknown"
+            return TokenStepResult(
+                None, "needs_token_field", report, header, "rerun with --token-field"
+            )
+        report["token_field"] = chosen
+        report["token_field_source"] = source
+        report["status"] = "confirmed"
+        token = SecretStr(strings[chosen])
     del strings
 
     header.update(scheme="Bearer")
