@@ -10,10 +10,11 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from garmin_archive.models import Clock, GarminArchiveError, StorageError
+from garmin_archive.processing.form import rebuild_form
 from garmin_archive.processing.inputs import pending_activity_ids
 from garmin_archive.processing.processor import (
     STATUS_FAILED,
@@ -30,6 +31,8 @@ class BatchCounters:
     processed: int = 0
     partial: int = 0
     failed: int = 0
+    form_matched: int = 0
+    form_unmatched: int = 0
 
 
 def _run(conn: sqlite3.Connection, activity_ids: Iterable[str], clock: Clock) -> BatchCounters:
@@ -84,7 +87,18 @@ def reprocess(
         except sqlite3.Error as exc:
             raise StorageError(f"Archive read failed: {exc}") from exc
         if activity_id is None:
-            return _run(conn, known, clock)
-        if activity_id not in known:
-            return BatchCounters(failed=1)
-        return _run(conn, [activity_id], clock)
+            counters = _run(conn, known, clock)
+        elif activity_id not in known:
+            counters = BatchCounters(failed=1)
+        else:
+            counters = _run(conn, [activity_id], clock)
+        return _with_form(conn, counters)
+
+
+def _with_form(conn: sqlite3.Connection, counters: BatchCounters) -> BatchCounters:
+    """Rebuild the FORM tables in full; a failed rebuild counts as one failure."""
+    try:
+        form = rebuild_form(conn)
+    except (GarminArchiveError, sqlite3.Error):
+        return replace(counters, failed=counters.failed + 1)
+    return replace(counters, form_matched=form.matched, form_unmatched=form.unmatched)

@@ -14,6 +14,7 @@ from garmin_archive.models import (
     GarminArchiveError,
 )
 from garmin_archive.processing.batch import process_pending
+from garmin_archive.processing.form import rebuild_form
 from garmin_archive.sync.discovery import (
     DiscoveryOutcome,
     PageRecorder,
@@ -151,6 +152,11 @@ def run_update(
         processed, processing_failed = batch.processed + batch.partial, batch.failed
     except (GarminArchiveError, sqlite3.Error):
         processed, processing_failed = 0, 1
+    # FORM matching needs the freshly processed Garmin swims, so it runs after them.
+    try:
+        rebuild_form(conn)
+    except (GarminArchiveError, sqlite3.Error):
+        processing_failed += 1
     return UpdateResult(
         run_id=run_id,
         status=status,

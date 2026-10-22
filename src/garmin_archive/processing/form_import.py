@@ -6,15 +6,21 @@ number.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import sqlite3
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 from garmin_fit_sdk import Decoder, Stream
 
 from garmin_archive.archive import ArchiveWriter
+from garmin_archive.clock import Clock
 from garmin_archive.processing.fitfile import FitUnavailableError, zip_member_contents
+from garmin_archive.processing.form import rebuild_form
+from garmin_archive.processing.form_download import FormDownloadError, download_form_zip
 
 FORM_MANUFACTURER = "form"
 
@@ -114,3 +120,82 @@ def import_form_files(writer: ArchiveWriter, paths: Iterable[Path]) -> FormImpor
         else:
             _import_body(writer, report, body, name)
     return report
+
+
+class FormImportOutcome(StrEnum):
+    """Result class the CLI maps to exit codes: 0, 6, 2 and 4."""
+
+    OK = "ok"
+    PARTIAL = "partial"
+    NOTHING_VALID = "nothing_valid"
+    DOWNLOAD_FAILED = "download_failed"
+
+
+@dataclass
+class FormImportResult:
+    """Output of :func:`import_form`; never contains the download URL (only its host, in errors)."""
+
+    outcome: FormImportOutcome
+    imported: int = 0
+    duplicate: int = 0
+    rejected: list[RejectedFile] = field(default_factory=lambda: [])
+    matched: int = 0
+    unmatched: int = 0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON shape: imported, duplicate, rejected [{file, reason}], matched, unmatched."""
+        data: dict[str, Any] = {
+            "imported": self.imported,
+            "duplicate": self.duplicate,
+            "rejected": [{"file": r.file, "reason": r.reason} for r in self.rejected],
+            "matched": self.matched,
+            "unmatched": self.unmatched,
+        }
+        if self.error is not None:
+            data["error"] = self.error
+        return data
+
+
+def import_form(
+    conn: sqlite3.Connection,
+    clock: Clock,
+    *,
+    paths: Sequence[Path] | None = None,
+    url: str | None = None,
+    http_client: httpx.Client | None = None,
+) -> FormImportResult:
+    """Import FORM FIT files from local ``paths`` or a download ``url``, then rebuild FORM rows.
+
+    Exactly one of ``paths`` and ``url`` must be given; a ``url`` needs ``http_client``. A failed
+    download returns ``DOWNLOAD_FAILED`` with a host-only error and imports nothing. The rebuild
+    is offline and runs whenever at least one file was valid (imported or duplicate).
+    """
+    if (paths is None) == (url is None):
+        raise ValueError("provide exactly one of paths or url")
+    writer = ArchiveWriter(conn, clock)
+    if url is not None:
+        if http_client is None:
+            raise ValueError("http_client is required when url is given")
+        try:
+            body = download_form_zip(http_client, url)
+        except FormDownloadError as exc:
+            return FormImportResult(FormImportOutcome.DOWNLOAD_FAILED, error=str(exc))
+        report = import_form_zip_bytes(writer, body)
+    else:
+        assert paths is not None
+        report = import_form_files(writer, paths)
+
+    result = FormImportResult(
+        FormImportOutcome.NOTHING_VALID,
+        imported=report.imported,
+        duplicate=report.duplicate,
+        rejected=report.rejected,
+    )
+    if report.imported + report.duplicate == 0:
+        return result
+    rebuilt = rebuild_form(conn)
+    result.matched = rebuilt.matched
+    result.unmatched = rebuilt.unmatched
+    result.outcome = FormImportOutcome.PARTIAL if report.rejected else FormImportOutcome.OK
+    return result

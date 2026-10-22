@@ -177,3 +177,173 @@ WHERE s.matched_activity_id IS NULL
       AND julianday(ga.start_at_utc) < julianday(s.start_at_utc)
           + COALESCE(s.elapsed_duration_s, s.timer_duration_s, 0) / 86400.0
   );
+
+-- v_swim_lengths: matched pool swims and FORM-only sessions take lengths from form_lengths (data_source='form'; includes drill;
+-- likely_unrecorded_swim NULL; activity_id is the Garmin id when matched, else form_session_id). Everything else keeps the Garmin lengths.
+-- Columns are listed explicitly: existing columns keep name and order, data_source is appended.
+DROP VIEW v_swim_lengths;
+
+CREATE VIEW v_swim_lengths AS
+SELECT
+    l.activity_id,
+    l.length_index,
+    l.processing_run_id,
+    l.source_payload_id,
+    l.lap_index,
+    l.start_at_utc,
+    l.length_type,
+    l.stroke_type,
+    l.distance_m,
+    l.timer_duration_s,
+    l.elapsed_duration_s,
+    l.stroke_count,
+    l.avg_stroke_rate_spm,
+    l.swolf,
+    l.likely_unrecorded_swim,
+    a.local_date,
+    CASE WHEN l.length_type = 'active' AND l.distance_m > 0
+        THEN l.timer_duration_s * 100.0 / l.distance_m END AS pace_s_per_100m,
+    'garmin' AS data_source
+FROM swim_lengths AS l
+JOIN activities AS a ON a.activity_id = l.activity_id
+WHERE COALESCE(a.is_multisport_parent, 0) = 0
+  AND NOT EXISTS (
+    SELECT 1 FROM form_sessions AS f
+    WHERE f.matched_activity_id = a.activity_id AND f.environment = 'pool'
+  )
+
+UNION ALL
+
+SELECT
+    a.activity_id,
+    fl.length_index,
+    NULL,
+    fl.source_payload_id,
+    fl.lap_index,
+    fl.start_at_utc,
+    fl.length_type,
+    fl.stroke_type,
+    fl.distance_m,
+    fl.timer_duration_s,
+    fl.elapsed_duration_s,
+    fl.stroke_count,
+    fl.avg_stroke_rate_spm,
+    fl.swolf,
+    NULL,
+    a.local_date,
+    CASE WHEN fl.length_type = 'active' AND fl.distance_m > 0
+        THEN fl.timer_duration_s * 100.0 / fl.distance_m END,
+    'form'
+FROM form_sessions AS f
+JOIN form_lengths AS fl ON fl.form_session_id = f.form_session_id
+JOIN activities AS a ON a.activity_id = f.matched_activity_id
+WHERE f.environment = 'pool' AND COALESCE(a.is_multisport_parent, 0) = 0
+
+UNION ALL
+
+SELECT
+    s.form_session_id,
+    fl.length_index,
+    NULL,
+    fl.source_payload_id,
+    fl.lap_index,
+    fl.start_at_utc,
+    fl.length_type,
+    fl.stroke_type,
+    fl.distance_m,
+    fl.timer_duration_s,
+    fl.elapsed_duration_s,
+    fl.stroke_count,
+    fl.avg_stroke_rate_spm,
+    fl.swolf,
+    NULL,
+    s.local_date,
+    CASE WHEN fl.length_type = 'active' AND fl.distance_m > 0
+        THEN fl.timer_duration_s * 100.0 / fl.distance_m END,
+    'form'
+FROM form_sessions AS s
+JOIN form_lengths AS fl ON fl.form_session_id = s.form_session_id
+WHERE s.matched_activity_id IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM activities AS ga
+    WHERE ga.sport_family = 'swimming'
+      AND COALESCE(ga.is_multisport_parent, 0) = 0
+      AND julianday(s.start_at_utc) < julianday(ga.start_at_utc)
+          + COALESCE(ga.elapsed_duration_s, ga.timer_duration_s, 0) / 86400.0
+      AND julianday(ga.start_at_utc) < julianday(s.start_at_utc)
+          + COALESCE(s.elapsed_duration_s, s.timer_duration_s, 0) / 86400.0
+  );
+
+-- v_activity_summary: Garmin activities stay pure Garmin (matched swims are not overridden); FORM-only sessions (same
+-- definition as v_swimming) are added as swimming rows with data_source='form'. Apply include_in_volume_totals when summing.
+DROP VIEW v_activity_summary;
+
+CREATE VIEW v_activity_summary AS
+SELECT
+    a.activity_id,
+    a.processing_run_id,
+    a.source_payload_id,
+    a.parent_activity_id,
+    a.is_multisport_parent,
+    a.type_key,
+    a.sport_family,
+    a.name,
+    a.description,
+    a.start_at_utc,
+    a.start_local,
+    a.local_date,
+    a.timezone,
+    a.distance_m,
+    a.timer_duration_s,
+    a.elapsed_duration_s,
+    a.moving_duration_s,
+    a.avg_speed_mps,
+    a.max_speed_mps,
+    a.avg_hr_bpm,
+    a.max_hr_bpm,
+    a.calories_kcal,
+    a.elevation_gain_m,
+    a.elevation_loss_m,
+    a.aerobic_training_effect,
+    a.anaerobic_training_effect,
+    a.training_load,
+    a.processing_status,
+    a.processed_at_utc,
+    CASE WHEN a.is_multisport_parent = 1 THEN 0 ELSE 1 END AS include_in_volume_totals,
+    'garmin' AS data_source
+FROM activities AS a
+
+UNION ALL
+
+SELECT
+    s.form_session_id,
+    NULL, NULL, NULL, NULL,
+    CASE s.environment WHEN 'pool' THEN 'lap_swimming' WHEN 'open_water' THEN 'open_water_swimming' END,
+    'swimming',
+    NULL, NULL,
+    s.start_at_utc,
+    NULL,
+    s.local_date,
+    NULL,
+    s.distance_m,
+    s.timer_duration_s,
+    s.elapsed_duration_s,
+    NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    'processed',
+    NULL,
+    1,
+    'form'
+FROM form_sessions AS s
+WHERE s.matched_activity_id IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM activities AS ga
+    WHERE ga.sport_family = 'swimming'
+      AND COALESCE(ga.is_multisport_parent, 0) = 0
+      AND julianday(s.start_at_utc) < julianday(ga.start_at_utc)
+          + COALESCE(ga.elapsed_duration_s, ga.timer_duration_s, 0) / 86400.0
+      AND julianday(ga.start_at_utc) < julianday(s.start_at_utc)
+          + COALESCE(s.elapsed_duration_s, s.timer_duration_s, 0) / 86400.0
+  );
