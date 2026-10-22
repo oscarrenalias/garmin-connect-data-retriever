@@ -304,3 +304,117 @@ def test_fixture_documents_are_valid_json(tmp_path: Path, name: str) -> None:
     runner.capture()
     for path in (runner.fixtures / name).glob("*.json"):
         json.loads(path.read_text(encoding="utf-8"))
+
+
+def _run_main(
+    runner: Runner, tmp_path: Path, transport: httpx.BaseTransport, *extra: str
+) -> tuple[int, str, str]:
+    stdout, stderr = io.StringIO(), io.StringIO()
+    deps = MainDeps(
+        environ={"GARMIN_API_KEY": API_KEY},
+        cwd=tmp_path,
+        sleep=runner.sleeps.append,
+        clock=lambda: FIXED_NOW,
+        transport=transport,
+        stdout=stdout,
+        stderr=stderr,
+    )
+    argv = ["capture", "--fixtures-dir", str(runner.fixtures), "--delay", "0", *extra]
+    return main(argv, deps), stdout.getvalue(), stderr.getvalue()
+
+
+def test_ambiguous_token_field_exits_2_and_writes_report(tmp_path: Path) -> None:
+    """AC7: two plausible token fields and no --token-field give needs_token_field, exit 2."""
+
+    def ambiguous(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"accessToken": "tok-one-xxxx", "idToken": "tok-two-xxxx"})
+
+    runner = Runner(tmp_path)
+    code, stdout, stderr = _run_main(runner, tmp_path, httpx.MockTransport(ambiguous))
+    assert code == 2
+    assert "outcome: needs_token_field" in stdout
+    assert "--token-field" in stdout
+    report = runner.report()
+    assert report["outcome"] == "needs_token_field"
+    assert report["samples"] == []
+    _assert_absent([b"tok-one-xxxx", b"tok-two-xxxx"], _all_files(runner.fixtures), {
+        "stdout": stdout,
+        "stderr": stderr,
+    })  # fmt: skip
+
+
+def test_max_pages_reached_is_partial_exit_2_and_sampling_still_runs(tmp_path: Path) -> None:
+    """AC8: stopping inventory at --max-pages is partial/exit 2; samples are still captured."""
+    runner = Runner(tmp_path)
+    code, stdout, _ = _run_main(
+        runner, tmp_path, runner.api.transport(), "--page-size", str(PAGE_SIZE), "--max-pages", "1"
+    )
+    assert code == 2
+    assert "outcome: partial" in stdout
+    report = runner.report()
+    assert report["outcome"] == "partial"
+    assert report["pagination"]["inventory_status"] != "complete"
+    assert len(report["pagination"]["pages"]) == 1
+    assert report["samples"], "sampling must still run on the partial inventory"
+    assert any((runner.fixtures / "summaries").glob("*.json"))
+    # Only activities from page 1 can have been sampled.
+    summary_paths = [p for p in runner.api.paths() if p.startswith("/activity-service/activity/")]
+    fetched = {int(p.split("/")[3]) for p in summary_paths}
+    assert fetched <= {ACTIVITY_IDS[0], ACTIVITY_IDS[1], ACTIVITY_IDS[2]}
+
+
+def test_retry_after_300_gives_partial_run_exit_2(tmp_path: Path) -> None:
+    """AC9: a 429 with Retry-After 300 stops the run as partial without sleeping."""
+    api = FakeGarminApi()
+
+    def throttled(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/workouts"):
+            return httpx.Response(429, headers={"Retry-After": "300"})
+        return api(request)
+
+    runner = Runner(tmp_path, api)
+    code, stdout, _ = _run_main(
+        runner, tmp_path, httpx.MockTransport(throttled), "--page-size", str(PAGE_SIZE)
+    )
+    assert code == 2
+    assert "outcome: partial" in stdout
+    assert runner.sleeps == []
+    report = runner.report()
+    assert report["outcome"] == "partial"
+    assert report["http"]["status_429_count"] == 1
+    assert report["http"]["retry_after_seen"] is True
+
+
+def test_leak_gate_skips_file_records_failure_and_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC11: a planted original value skips the file, fills failed_fixtures, exits 1."""
+    from garmin_archive.devtools.discovery import capture as capture_module
+
+    real_fetch = capture_module.fetch_sample
+    planted = "Secret Name 5100000001"  # an original that sanitize redacts in the summary
+
+    def leaky_fetch(*args: Any, **kwargs: Any) -> Any:
+        result = real_fetch(*args, **kwargs)
+        if result.sample.name == "running-1" and result.manifest is not None:
+            result.manifest = {**result.manifest, "planted": planted}
+        return result
+
+    monkeypatch.setattr(capture_module, "fetch_sample", leaky_fetch)
+    runner = Runner(tmp_path)
+    code, stdout, stderr = _run_main(
+        runner, tmp_path, runner.api.transport(), "--page-size", str(PAGE_SIZE)
+    )
+    assert code == 1
+    assert "leak check failed for 1 fixture(s)" in stderr
+    assert not (runner.fixtures / "files" / "running-1.manifest.json").exists()
+    # Other fixtures are still written; the run continues.
+    assert (runner.fixtures / "summaries" / "running-1.json").is_file()
+    assert (runner.fixtures / "files" / "pool_swim-1.manifest.json").is_file()
+    report = runner.report()
+    assert report["leak_check"]["status"] == "failed"
+    failed = report["leak_check"]["failed_fixtures"]
+    assert [f["file"] for f in failed] == ["files/running-1.manifest.json"]
+    assert failed[0]["json_path"] == "$.planted"
+    # The matched value is never recorded anywhere.
+    _assert_absent([planted.encode()], _all_files(runner.fixtures), {"stdout": stdout})
