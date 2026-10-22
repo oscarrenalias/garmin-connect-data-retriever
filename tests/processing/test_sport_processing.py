@@ -12,6 +12,7 @@ import pytest
 from garmin_archive.processing.batch import process_pending
 from garmin_archive.processing.fit_rows import sample_rows
 from garmin_archive.processing.processor import process_activity
+from garmin_archive.processing.sports import SPORTS_VERSION
 from helpers.archive_seed import (
     FixedClock,
     record_file,
@@ -455,10 +456,12 @@ def test_replaced_file_without_lengths_drops_old_length_rows(
     assert _row(conn, "swimming_metrics")["recorded_rest_duration_s"] == pytest.approx(0.0)
 
 
-def test_processor_version_reflects_sports3(conn: sqlite3.Connection, clock: FixedClock) -> None:
+def test_processor_version_reflects_sports_version(
+    conn: sqlite3.Connection, clock: FixedClock
+) -> None:
     seed_activity(conn, clock, AID, summary=summary_copy("running-1", AID))
     result = process_activity(conn, AID, clock)
     version = conn.execute(
         "SELECT processor_version FROM processing_runs WHERE id = ?", (result.run_id,)
     ).fetchone()[0]
-    assert version.endswith("+sports3")
+    assert version.endswith(f"+sports{SPORTS_VERSION}")

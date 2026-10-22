@@ -35,7 +35,7 @@ from garmin_archive.processing.metrics import (
     swim_pool_length_m,
     swimming_metrics_row,
 )
-from garmin_archive.processing.swim import swim_length_rows
+from garmin_archive.processing.swim import flag_unrecorded_swim, swim_length_rows
 from garmin_archive.storage.connection import transaction
 
 STATUS_PROCESSED = "processed"
@@ -158,7 +158,11 @@ def _sport_rows(
         pool = type_key == "lap_swimming"
         pool_length = swim_pool_length_m(summary, warnings) if pool else None
         lengths = (
-            swim_length_rows(fit.lengths, fit.laps, pool_length) if pool and fit is not None else []
+            flag_unrecorded_swim(
+                swim_length_rows(fit.lengths, fit.laps, pool_length), sample_rows(fit.records)
+            )
+            if pool and fit is not None
+            else []
         )
         row = swimming_metrics_row(str(type_key), summary, lengths, warnings, pool_length)
         return _SportRows("swimming_metrics", row, lengths)

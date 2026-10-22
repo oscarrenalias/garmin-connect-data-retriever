@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-SPORTS_VERSION = "3"
+SPORTS_VERSION = "4"
 
 OTHER_FAMILY = "other"
 
