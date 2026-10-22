@@ -61,29 +61,20 @@ uv run garmin-archive auth check                      # get a token and make one
 1. **Freshness.** If the question involves recent activities ("my run today", "this week"), check the last sync:
    `sql --query "SELECT finished_at_utc, status FROM sync_runs ORDER BY id DESC LIMIT 1"`.
    If it is more than a few hours old, run `update` first.
-2. **Orientation.** On first use in a conversation, run `schema`. Then run `describe <view>` for the views you need.
+2. **Orientation.** On first use in a conversation, always run `schema`, then `describe` the views you will query. This is the source of truth for tables and columns.
 3. **Query.** Prefer the `v_*` views. Write one `SELECT`. CTEs, window functions, joins and JSON functions are allowed.
 4. **Answer.** Give the user numbers and interpretation, and disclose the caveats listed below.
 
-## Data Model (quick reference)
+## Discovering the Data Model
 
-Times: `start_at_utc` is UTC (RFC 3339, ending in `Z`). `start_local` is local wall time. `local_date` is the activity's local date: use it for daily, weekly and monthly grouping.
+Don't rely on remembered table layouts. Discover them at runtime:
 
-| Object | Grain | Notes |
-|---|---|---|
-| `v_activity_summary` | one row per activity, all sports | `sport_family`, `type_key`, distance and durations, HR, calories, elevation, training effect, `include_in_volume_totals` |
-| `v_running` | one row per run | adds cadence (spm), stride (m), ground contact (ms), vertical oscillation (cm) and ratio (%), power (W), `timer_pace_s_per_km` |
-| `v_swimming` | one row per swim | `swim_environment` (`pool`/`open_water`), `pool_length_m`, active lengths, strokes, SWOLF, `active_swim_duration_s`, `recorded_rest_duration_s`, `length_coverage_status`, `timer_pace_s_per_100m`, `active_pace_s_per_100m` |
-| `v_swim_lengths` | one row per pool length, **idle lengths included** | `length_type` (`active`/`idle`), `stroke_type`, `stroke_count`, `swolf`, `pace_s_per_100m`, `local_date` |
-| `v_cycling` | one row per ride | cadence (rpm), power (W), normalized power, TSS, IF. These are often NULL when no sensor was used. |
-| `v_cardio` | one row per `indoor_cardio` activity | steps, sets, reps, active and rest set durations |
-| `activity_laps` | one row per lap | per-lap distance, time, HR, speed. Join on `activity_id`. |
-| `activity_samples` | one row per recorded sample, at native rate | time, distance, speed, HR, cadence (+`cadence_unit`), altitude, lat/lon (degrees), power, temperature |
-| `activity_sets` | one row per strength/cardio set | `set_type` (`active`/`rest`), `repetitions`, `duration_s`, `weight_kg`, `category` |
-| `activities`, `*_metrics`, `swim_lengths`, `activity_sessions` | base tables behind the views | |
-| `raw_payloads`, `activity_archive`, `activity_resources`, `sync_runs` | raw archive and sync bookkeeping | Raw Garmin JSON is in `raw_payloads.body_text` and can be queried with `json_extract`. |
-
-**Sport families:** `running`, `swimming`, `hiit`, `cardio`, `cycling`, `walking` and `other`. The `other` family covers mobility, strength and any unknown types. Filter with `sport_family`, never with activity names.
+- Run `schema` to list every queryable table and view, with its description, grain (what one row represents) and columns.
+- Run `describe <name>` for one object, including its row count, and `sample <name>` to see real rows.
+- **Prefer the `v_*` views**, for example `v_activity_summary`, `v_running` and `v_swimming`. They join the common activity data with sport metrics and add derived paces. Use the base tables (laps, samples, sets, swim lengths) for drill-downs.
+- Get sport families from the data, not from a list: `SELECT DISTINCT sport_family FROM v_activity_summary`. Filter on `sport_family` or `type_key`, never on activity names.
+- Column names carry their units (`_m`, `_s`, `_mps`, `_bpm`, `_spm`, `_rpm`, `_w`, `_kcal`). Times ending in `_utc` are UTC. Group days, weeks and months by `local_date`.
+- The column names in the rules below are current as of writing. If a query fails because a column is missing, check it with `describe` and adapt.
 
 ## Analysis Rules (important)
 
@@ -95,7 +86,7 @@ Times: `start_at_utc` is UTC (RFC 3339, ending in `Z`). `start_local` is local w
 - **Run/walk sessions:** Garmin labels them `running`. To compare steady runs, exclude sessions with a high walking share, for example the share of `activity_samples` with `cadence < 120` (running samples use `cadence_unit = 'spm'`).
 - **Fair comparisons:** to show fitness change, compare pace at a similar heart rate (for example laps with `avg_hr_bpm BETWEEN 145 AND 152`), or distance per heartbeat (`SUM(distance_m) / SUM(avg_hr_bpm * timer_duration_s / 60)`), not just raw pace.
 - **Raw payloads keep every version.** For the current raw JSON of an activity, join `activity_resources.current_payload_id = raw_payloads.id`. Don't count rows in `raw_payloads` directly.
-- **Units are in column names:** `_m`, `_s`, `_mps`, `_bpm`, `_spm`, `_rpm`, `_w`, `_kcal`. Convert for display, for example pace in min:s per km or per 100 m.
+- Convert units for display, for example pace as min:s per km or per 100 m.
 
 ## Example Queries
 
