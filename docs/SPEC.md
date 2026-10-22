@@ -88,10 +88,10 @@ All behavior must be callable through the library. CLI code must not contain aut
 
 ## 4. Credentials and authorization
 
-Credential lookup: explicit library credential provider, then `GARMIN_API_KEY`, then an optional OS keyring entry. Support a protected key file for unattended systems without a keyring. Do not accept the key as a command-line argument. `auth configure` uses a hidden prompt or secure file input; it must not echo the value.
+Credential lookup: explicit library credential provider, then the `GARMIN_API_KEY` (or `GARMIN_CONNECT_API_KEY`) environment variable, then the same variable names in a `.env` file (the current directory's `.env`, or `--env-file PATH`). The application never stores the key: there is no OS keyring integration, no key file written by the application, and no `auth configure` command. The key is never accepted as a command-line argument. *(Decision 2026-10-22: the user rejected keyring and persisted-credential storage.)*
 
 - Never persist keys, tokens, token endpoint responses or Authorization headers in the activity database, logs, fixtures or CLI output.
-- Cache tokens in memory; optional persistent caching must use OS keyring or a separate owner-only credential file. Bind cached tokens to their configured credential identity and invalidate on rotation.
+- Acquire a fresh access token on each CLI invocation and hold it in memory only for that process's lifetime. Tokens are **never persisted** anywhere. Within a process, bind the cached token to the credential identity and invalidate it on rotation.
 - Refresh shortly before known expiry (60-second margin). If expiry metadata is absent, use a conservative cache lifetime and handle a 401; do not assume an opaque token is a JWT.
 - On data-request 401, obtain a fresh token and retry once. A second 401 stops with `AUTH_FAILED`. Do not renew indefinitely.
 - A 403 is an authorization/resource failure, not a token-refresh loop. Surface it with the affected resource.
@@ -99,7 +99,7 @@ Credential lookup: explicit library credential provider, then `GARMIN_API_KEY`, 
 - The local CLI is single-user and relies on OS file permissions; it does not implement an additional login system. Protect the database, backups and credentials appropriately.
 - Bind the database to `userProfileId` from a verified activity summary. Reject subsequent ingestion from another profile. An empty account remains unverified until identity can be established; never infer identity from the key string.
 
-`auth status` exposes configuration/expiry status without secrets; `auth check` performs token acquisition and a minimal read; `auth clear` removes the local cached token only. Key revocation is performed in Garmin Connect.
+`auth status` reports whether a key is configured and from which source, without secrets. `auth check` performs token acquisition and a minimal read. There is no `auth clear`, because nothing is cached between invocations. Key revocation is performed in Garmin Connect.
 
 ## 5. Archival storage
 
@@ -262,7 +262,7 @@ JSON is the default and stable automation format. Human-readable formatting may 
 | Command | Purpose / principal options |
 | --- | --- |
 | `init` | Create database and apply known migrations |
-| `auth configure`, `auth check`, `auth status`, `auth clear` | Credential setup and validation; no secret output |
+| `auth check`, `auth status` | Credential validation and configuration status; no secret output |
 | `update` | Incremental discovery/archive/process; `--full`, `--from`, `--to`, `--activity-id`, `--resume`, `--retry-failed`, `--archive-only` |
 | `reprocess` | Offline rebuild; require `--all`, `--activity-id` or `--sport`; optional `--failed-only` |
 | `list-activities` | Date/type/family/processing-state filters, deterministic order, `--limit`/`--offset` |
