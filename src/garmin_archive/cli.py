@@ -28,6 +28,7 @@ from garmin_archive.output import (
     exit_code_for_run_status,
     success,
 )
+from garmin_archive.processing.form_import import FormImportOutcome
 from garmin_archive.query import DEFAULT_LIMIT, DEFAULT_TIMEOUT_S
 
 app = typer.Typer(help="Archive Garmin Connect activities into a local SQLite database.")
@@ -172,6 +173,47 @@ def reprocess(
         sys.stdout,
     )
     return exit_code_for_reprocess(counters.failed)
+
+
+_FORM_EXIT_CODES = {
+    FormImportOutcome.OK: 0,
+    FormImportOutcome.PARTIAL: 6,
+    FormImportOutcome.NOTHING_VALID: 2,
+    FormImportOutcome.DOWNLOAD_FAILED: 4,
+}
+
+
+@app.command("import-form")
+def import_form(
+    ctx: typer.Context,
+    files: Annotated[
+        list[Path] | None,
+        typer.Argument(help="FORM .fit or .zip files to import."),
+    ] = None,
+    url: Annotated[
+        str | None,
+        typer.Option("--url", help="Pre-signed FORM export download URL (never echoed)."),
+    ] = None,
+) -> int:
+    """Import FORM goggles FIT files from local files or a download URL (no credentials)."""
+    obj: dict[str, Any] = ctx.obj or {}
+    if bool(files) == (url is not None):
+        raise InvalidQueryError("provide either FILE arguments or --url")
+    http_client: httpx.Client | None = obj.get("http_client")
+    owned = url is not None and http_client is None
+    if owned:
+        http_client = httpx.Client()
+    try:
+        with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+            result = client.import_form(paths=files, url=url, http_client=http_client)
+    finally:
+        if owned and http_client is not None:
+            http_client.close()
+    if result.outcome is FormImportOutcome.DOWNLOAD_FAILED:
+        emit(error("FORM_DOWNLOAD_ERROR", result.error or "Download failed"), sys.stdout)
+    else:
+        emit(success(result.to_dict(), status=result.outcome.value), sys.stdout)
+    return _FORM_EXIT_CODES[result.outcome]
 
 
 @app.command()

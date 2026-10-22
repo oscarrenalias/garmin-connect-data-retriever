@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import Any
 
+import httpx
+
 from garmin_archive._version import __version__
 from garmin_archive.config import ArchiveConfig, resolve_db_path
 from garmin_archive.models import Clock, DatabaseNotFoundError, SystemClock
 from garmin_archive.processing.batch import BatchCounters, reprocess
+from garmin_archive.processing.form_import import FormImportResult, import_form
 from garmin_archive.query import (
     DEFAULT_LIMIT,
     DEFAULT_TIMEOUT_S,
@@ -165,6 +168,26 @@ class ArchiveClient:
         finally:
             conn.close()
             secure_sidecar_files(path)
+
+    def import_form(
+        self,
+        *,
+        paths: Sequence[Path] | None = None,
+        url: str | None = None,
+        http_client: httpx.Client | None = None,
+    ) -> FormImportResult:
+        """Import FORM goggles FIT files from local ``paths`` or a download ``url``."""
+        path = self.db_path
+        if not path.exists():
+            raise DatabaseNotFoundError(f"Database not found: {path}")
+        with writer_lock(path):
+            conn = open_write_connection(path, busy_timeout_ms=self._config.busy_timeout_ms)
+            try:
+                check_schema(conn, source=self._migrations)
+                return import_form(conn, self._clock, paths=paths, url=url, http_client=http_client)
+            finally:
+                conn.close()
+                secure_sidecar_files(path)
 
     def schema(self) -> dict[str, Any]:
         """List the queryable objects in the archive; local only."""
