@@ -208,3 +208,37 @@ def test_planted_activity_name_still_leaks_with_exercise_name_present() -> None:
     sanitize({"activityName": "Morning Run with Bob", "exerciseName": "WALK"}, ctx, source="a")
     hits = check_leaks(json.dumps({"x": "Morning Run with Bob"}), sensitive_set(ctx, "b"))
     assert [h.json_path for h in hits] == ["$.x"]
+
+
+def test_profile_pk_pseudonymized_consistently_with_profile_id() -> None:
+    ctx = make_ctx()
+    doc = {
+        "userProfileId": 123456789,
+        "ownerId": 123456789,
+        "metadataDTO": {"userInfoDto": {"userProfilePk": 123456789}},
+    }
+    out = sanitize(doc, ctx, source="s")
+    pseudo = out["userProfileId"]
+    assert pseudo != 123456789
+    assert out["ownerId"] == pseudo
+    assert out["metadataDTO"]["userInfoDto"]["userProfilePk"] == pseudo
+    assert "123456789" not in json.dumps(out)
+    assert check_leaks(json.dumps(out), sensitive_set(ctx, "s")) == []
+
+
+def test_identifier_original_leaks_even_when_passed_through_under_unknown_key() -> None:
+    ctx = make_ctx()
+    doc = {"userProfileId": 123456789, "someOwnerRef": 123456789}
+    out = sanitize(doc, ctx, source="s")
+    assert out["someOwnerRef"] == 123456789  # unknown key: passed through unchanged
+    assert "123456789" in sensitive_set(ctx, "s")
+    assert "123456789" in sensitive_set(ctx, None)
+    hits = check_leaks(json.dumps(out), sensitive_set(ctx, "s"))
+    assert [h.json_path for h in hits] == ["$.someOwnerRef"]
+
+
+def test_url_original_not_exempted_by_pass_through() -> None:
+    ctx = make_ctx()
+    url = "https://example.com/pic.jpg"
+    sanitize({"profileImageUrl": url, "other": url}, ctx, source="s")
+    assert url in sensitive_set(ctx, "s")

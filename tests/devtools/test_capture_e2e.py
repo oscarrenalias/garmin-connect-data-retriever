@@ -20,6 +20,9 @@ from fake_api import (
     PAGE_SIZE,
     PROFILE_ID,
     TOKEN,
+    USER_DISPLAY_NAME,
+    USER_FULL_NAME,
+    USER_IMAGE_URL,
     FakeGarminApi,
 )
 
@@ -136,6 +139,11 @@ def _check_run(runner: Runner, stdout: str = "", stderr: str = "") -> None:
     # AC6: no raw activity or profile ID anywhere under the fixtures directory.
     ids = [str(i).encode() for i in (*ACTIVITY_IDS, PROFILE_ID)]
     _assert_absent(ids, _all_files(runner.fixtures), {})
+    user_values = [USER_DISPLAY_NAME, USER_FULL_NAME, USER_IMAGE_URL]
+    _assert_absent([v.encode() for v in user_values], _all_files(runner.fixtures), {})
+    summary = json.loads((runner.fixtures / "summaries" / "running-1.json").read_text("utf-8"))
+    user_info = summary["metadataDTO"]["userInfoDto"]
+    assert user_info["userProfilePk"] == summary["userProfileId"] != PROFILE_ID
     # The raw directory keeps bodies as received, so the IDs are expected there.
     assert any(str(ACTIVITY_IDS[0]).encode() in p.read_bytes() for p in _all_files(runner.raw))
 
@@ -464,3 +472,28 @@ def test_min_page_size_option_reaches_inventory(tmp_path: Path) -> None:
     main(["capture", "--min-page-size", "25"], deps)
     main(["capture"], deps)
     assert [o.min_page_size for o in seen] == [25, 10]
+
+
+def test_unknown_key_carrying_profile_id_fails_leak_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Defence in depth: an unknown key carrying a pseudonymized ID is a leak; exit 1."""
+    from garmin_archive.devtools.discovery import capture as capture_module
+
+    real_fetch = capture_module.fetch_sample
+
+    def leaky_fetch(*args: Any, **kwargs: Any) -> Any:
+        result = real_fetch(*args, **kwargs)
+        if result.sample.name == "running-1" and isinstance(result.summary_json, dict):
+            result.summary_json = {**result.summary_json, "someOwnerRef": PROFILE_ID}
+        return result
+
+    monkeypatch.setattr(capture_module, "fetch_sample", leaky_fetch)
+    runner = Runner(tmp_path)
+    code, _stdout, _stderr = _run_main(
+        runner, tmp_path, runner.api.transport(), "--page-size", str(PAGE_SIZE)
+    )
+    assert code == 1
+    assert not (runner.fixtures / "summaries" / "running-1.json").exists()
+    failed = runner.report()["leak_check"]["failed_fixtures"]
+    assert {"file": "summaries/running-1.json", "json_path": "$.someOwnerRef"} in failed

@@ -19,6 +19,9 @@ API_KEY = "fake-api-key-SECRET-Qx7"
 TOKEN = "fake.token.SECRET-Zk9"
 PROFILE_ID = 7700112233
 PAGE_SIZE = 3
+USER_DISPLAY_NAME = "synthetic-display-handle"
+USER_FULL_NAME = "Synthetic Fullname"
+USER_IMAGE_URL = "https://example.invalid/profile/synthetic-image"
 
 RUNNING_ID = 5100000001
 MULTI_ID = 5100000002
@@ -135,6 +138,16 @@ class FakeGarminApi:
             **ITEMS[activity_id],
             "userProfileId": PROFILE_ID,
             "description": f"Secret description {activity_id}",
+            "metadataDTO": {
+                "userInfoDto": {
+                    "userProfilePk": PROFILE_ID,
+                    "displayname": USER_DISPLAY_NAME,
+                    "fullname": USER_FULL_NAME,
+                    "profileImageUrlLarge": f"{USER_IMAGE_URL}-large",
+                    "profileImageUrlMedium": f"{USER_IMAGE_URL}-medium",
+                    "profileImageUrlSmall": f"{USER_IMAGE_URL}-small",
+                }
+            },
             "summaryDTO": {"distance": 1234.5, "startLatitude": 51.5007, "startLongitude": -0.1246},
         }
         return _json(body)
