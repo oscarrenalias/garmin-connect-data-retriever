@@ -132,6 +132,18 @@ DiscoveryResult(
 - All timestamps come from the injected clock.
 - No secrets reach logs, results or the database. The search-page `resource_key` contains only documented query params.
 
+### 4. Clarifications (normative)
+
+1. **Failure logging.** On any `TransportError`, `RateLimitedError` or `ContractMismatchError` from `search_page`, discovery calls `writer.record_failure(kind="search_page", resource_key=search_page_key(<params sent>), activity_id=None, resource_state="failed", error_code=<error code>, http_status=<status or None>, ...)`. That happens in its own transaction, outside any page transaction, and before it reduces the page size or propagates. This follows SPEC §5.2: error observations belong in `fetch_events`.
+2. **A known activity with no `search_item` resource**, for example one first archived by a single-activity fetch, is classified `changed`.
+3. **Repeated and no-progress pages** are committed like any other page (payload, fetch event, items, checkpoint). Discovery then stops. `start` always advances by the number of items returned, and a short page never ends pagination. `server_error_pages` counts page-size reductions.
+4. **Locking.** The caller (`update`, next spec) holds `writer_lock`. `run_discovery` never acquires it.
+
+AC additions:
+- AC 3 also asserts exactly two failure `fetch_events` with `http_status = 500` and `payload_id IS NULL`.
+- AC 9 asserts that the checkpoint's `next_offset` equals the total items committed, including the repeated page.
+- New AC 16: an activity row with no `search_item` resource, which then appears in the inventory, is classified `changed`.
+
 ## Files to Modify
 
 | File | Change |
