@@ -180,7 +180,7 @@ def schema(ctx: typer.Context) -> None:
     obj: dict[str, Any] = ctx.obj or {}
     with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
         result = client.schema()
-    emit(success(result), sys.stdout)
+    emit(result, sys.stdout)
 
 
 @app.command()
@@ -191,7 +191,7 @@ def describe(
     obj: dict[str, Any] = ctx.obj or {}
     with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
         result = client.describe(name)
-    emit(success(result), sys.stdout)
+    emit(result, sys.stdout)
 
 
 @app.command()
@@ -204,7 +204,7 @@ def sample(
     obj: dict[str, Any] = ctx.obj or {}
     with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
         result = client.sample(name, limit)
-    emit(success(result), sys.stdout)
+    emit(result, sys.stdout)
 
 
 @app.command()
@@ -230,7 +230,7 @@ def sql(
             raise InvalidQueryError("--params is not valid JSON") from exc
     with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
         result = client.query(query, parameters, limit=limit, timeout_s=timeout)
-    emit(success(result), sys.stdout)
+    emit(result, sys.stdout)
 
 
 def main(argv: list[str] | None = None, *, http_client: httpx.Client | None = None) -> int:

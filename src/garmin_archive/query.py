@@ -151,29 +151,40 @@ _ALLOWED_READ_TABLES = frozenset(_BY_NAME) | {"json_each", "json_tree"}
 _DENIED_FUNCTIONS = frozenset({"load_extension"})
 
 
-def authorizer(
-    action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None
-) -> int:
-    """SQLite authorizer: permit only SELECT over registry objects and JSON helpers.
+def make_authorizer(
+    blocked_tables: frozenset[str] = frozenset(),
+) -> Callable[[int, str | None, str | None, str | None, str | None], int]:
+    """Build a SQLite authorizer: permit only SELECT over registry objects and JSON helpers.
 
     Column, database and trigger/view/CTE-source arguments are ignored on purpose:
     the table name alone decides, so a CTE named like a registry view cannot
     smuggle in reads of other tables (the underlying READ is still checked).
+    ``count(*)`` style reads carry an empty column and no database; they name either
+    nothing or a CTE (recursive CTEs report their own name), so they are allowed
+    unless the name is a real, non-queryable table in ``blocked_tables``.
     """
-    if action == sqlite3.SQLITE_SELECT or action == sqlite3.SQLITE_RECURSIVE:
-        return sqlite3.SQLITE_OK
-    if action == sqlite3.SQLITE_READ:
-        if arg1 in _ALLOWED_READ_TABLES:
+
+    def authorizer(
+        action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None
+    ) -> int:
+        if action == sqlite3.SQLITE_SELECT or action == sqlite3.SQLITE_RECURSIVE:
             return sqlite3.SQLITE_OK
-        # count(*) style reads carry no table, column or database.
-        if not arg1 and not arg2 and db_name is None:
+        if action == sqlite3.SQLITE_READ:
+            if arg1 in _ALLOWED_READ_TABLES:
+                return sqlite3.SQLITE_OK
+            if not arg2 and db_name is None and arg1 not in blocked_tables:
+                return sqlite3.SQLITE_OK
+            return sqlite3.SQLITE_DENY
+        if action == sqlite3.SQLITE_FUNCTION:
+            if (arg2 or "").lower() in _DENIED_FUNCTIONS:
+                return sqlite3.SQLITE_DENY
             return sqlite3.SQLITE_OK
         return sqlite3.SQLITE_DENY
-    if action == sqlite3.SQLITE_FUNCTION:
-        if (arg2 or "").lower() in _DENIED_FUNCTIONS:
-            return sqlite3.SQLITE_DENY
-        return sqlite3.SQLITE_OK
-    return sqlite3.SQLITE_DENY
+
+    return authorizer
+
+
+authorizer = make_authorizer()
 
 
 def harden_connection(conn: sqlite3.Connection) -> int:
@@ -187,7 +198,14 @@ def harden_connection(conn: sqlite3.Connection) -> int:
     if enable is not None:
         with contextlib.suppress(sqlite3.Error, AttributeError, NotImplementedError):
             enable(False)
-    conn.set_authorizer(authorizer)
+    blocked = (
+        frozenset(
+            str(name)
+            for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        )
+        - _ALLOWED_READ_TABLES
+    )
+    conn.set_authorizer(make_authorizer(blocked))
     return version
 
 
