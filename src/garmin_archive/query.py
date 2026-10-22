@@ -149,6 +149,9 @@ def lookup(conn: sqlite3.Connection, name: str) -> QueryableObject:
 
 _ALLOWED_READ_TABLES = frozenset(_BY_NAME) | {"json_each", "json_tree"}
 _DENIED_FUNCTIONS = frozenset({"load_extension"})
+_SCHEMA_TABLES = frozenset(
+    {"sqlite_master", "sqlite_schema", "sqlite_temp_master", "sqlite_temp_schema"}
+)
 
 
 def make_authorizer(
@@ -203,8 +206,8 @@ def harden_connection(conn: sqlite3.Connection) -> int:
             str(name)
             for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         )
-        - _ALLOWED_READ_TABLES
-    )
+        | _SCHEMA_TABLES
+    ) - _ALLOWED_READ_TABLES
     conn.set_authorizer(make_authorizer(blocked))
     return version
 

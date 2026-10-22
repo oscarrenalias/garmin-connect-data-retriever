@@ -88,6 +88,8 @@ def test_allowed(conn: sqlite3.Connection, sql: str) -> None:
         "SELECT load_extension('x')",
         "SELECT * FROM schema_migrations",
         "SELECT * FROM sqlite_master",
+        "SELECT count(*) FROM sqlite_master",
+        "SELECT count(*) FROM sqlite_temp_master",
         "WITH v_running AS (SELECT * FROM schema_migrations) SELECT * FROM v_running",
         "SELEC nonsense",
     ],

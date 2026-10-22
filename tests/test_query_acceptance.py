@@ -159,6 +159,8 @@ REJECTED = [
     "SELECT load_extension('x')",
     "SELECT 1; SELECT 2",
     "SELECT * FROM sqlite_master",
+    "SELECT count(*) FROM sqlite_master",
+    "SELECT count(*) FROM sqlite_temp_master",
     "SELECT * FROM schema_migrations",
     "BEGIN",
     "WITH v_activity_summary AS (SELECT * FROM schema_migrations) SELECT * FROM v_activity_summary",
