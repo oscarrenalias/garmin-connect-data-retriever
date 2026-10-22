@@ -1,1 +1,1 @@
-"""Sync pipeline: discovery and fetching."""
+"""Sync pipeline: discovery, fetching and run bookkeeping."""
