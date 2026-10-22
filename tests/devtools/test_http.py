@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -187,10 +188,8 @@ def test_rate_limit_headers_noted_in_stats() -> None:
     assert http.stats.rate_limit_headers == {"x-ratelimit-limit": "100"}
 
 
-def test_raw_recorder_writes_exact_bytes_and_filtered_headers(tmp_path: object) -> None:
-    from pathlib import Path
-
-    base = Path(str(tmp_path))
+def test_raw_recorder_writes_exact_bytes_and_filtered_headers(tmp_path: Path) -> None:
+    base = tmp_path
     body = b'{"a":  1}\n\xff'
     http, clock, _ = make(
         httpx.MockTransport(
