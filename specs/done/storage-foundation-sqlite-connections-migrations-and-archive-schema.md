@@ -5,7 +5,7 @@ description: "SQLite connections, atomic checksummed migrations, SPEC §5.2 sche
 dependencies: null
 priority: high
 complexity: null
-status: planned
+status: done
 tags:
 - storage
 - migrations
