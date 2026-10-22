@@ -1016,25 +1016,32 @@ def test_output_error_details_default_empty() -> None:
     assert error("X", "m")["error"]["details"] == {}
 
 
-def test_mark_pending_creates_and_does_not_downgrade(
+def test_mark_pending_creates_and_flips_keeping_payload(
     writer: ArchiveWriter, reader: ArchiveReader
 ) -> None:
     _activity(writer)
-    writer.mark_pending(activity_id=AID, kind="summary")
-    assert reader.resource_states(AID) == {"summary": "pending"}
+    writer.mark_pending(activity_id=AID, kinds=["summary", "workouts"])
+    assert reader.resource_states(AID) == {"summary": "pending", "workouts": "pending"}
     _summary(writer, b"{}")
-    writer.mark_pending(activity_id=AID, kind="summary")
+    payload = reader.current_payload(AID, "summary")
+    assert payload is not None
     assert reader.resource_states(AID)["summary"] == "available"
+    writer.mark_pending(activity_id=AID, kinds=["summary"])
+    assert reader.resource_states(AID)["summary"] == "pending"
+    after = reader.current_payload(AID, "summary")
+    assert after is not None and after.id == payload.id
 
 
 def test_mark_pending_validation(writer: ArchiveWriter) -> None:
     with pytest.raises(ValueError):
-        writer.mark_pending(activity_id="abc", kind="summary")
+        writer.mark_pending(activity_id="abc", kinds=["summary"])
     _activity(writer)
     with pytest.raises(ValueError):
-        writer.mark_pending(activity_id=AID, kind="bogus")
+        writer.mark_pending(activity_id=AID, kinds=["summary", "bogus"])
+    with pytest.raises(ValueError):
+        writer.mark_pending(activity_id=AID, kinds=["search_item"])
     with pytest.raises(StorageError):
-        writer.mark_pending(activity_id="999", kind="summary")
+        writer.mark_pending(activity_id="999", kinds=["summary"])
 
 
 def test_update_activity_classification(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
@@ -1057,7 +1064,7 @@ def test_batch_commits_all_helpers_together(
 ) -> None:
     with writer.batch():
         _activity(writer)
-        writer.mark_pending(activity_id=AID, kind="summary")
+        writer.mark_pending(activity_id=AID, kinds=["summary"])
         with writer.batch():
             writer.update_activity_classification(
                 activity_id=AID, type_key="cycling", parent_activity_id=None
@@ -1070,7 +1077,7 @@ def test_batch_commits_all_helpers_together(
 def test_batch_rolls_back_on_error(writer: ArchiveWriter, conn: sqlite3.Connection) -> None:
     with pytest.raises(StorageError), writer.batch():
         _activity(writer)
-        writer.mark_pending(activity_id="999", kind="summary")
+        writer.mark_pending(activity_id="999", kinds=["summary"])
     assert not conn.in_transaction
     assert conn.execute("SELECT COUNT(*) FROM activity_archive").fetchone()[0] == 0
     _activity(writer)  # writer is usable after rollback

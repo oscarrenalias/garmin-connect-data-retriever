@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TypeVar, cast
@@ -38,6 +38,9 @@ ACTIVITY_RESOURCE_KINDS: tuple[str, ...] = (
     KIND_ORIGINAL_FILE,
     KIND_IMPORTED_FILE,
 )
+
+# Per-activity kinds that sync can mark pending.
+_PENDING_KINDS: tuple[str, ...] = (KIND_SUMMARY, KIND_WORKOUTS, KIND_ORIGINAL_FILE)
 
 # activity_resources.state values.
 STATE_PENDING = "pending"
@@ -340,11 +343,17 @@ class ArchiveWriter:
 
         self._run(work)
 
-    def mark_pending(self, *, activity_id: str, kind: str) -> None:
-        """Mark a resource ``pending`` unless it already has a state (never downgrades)."""
+    def mark_pending(self, *, activity_id: str, kinds: Iterable[str]) -> None:
+        """Set summary/workouts/original_file resources to ``pending``.
+
+        Missing rows are created; existing rows keep ``current_payload_id`` and all archived
+        payloads. Invalid ids or kinds raise ``ValueError`` before any write.
+        """
         _validate_activity_id(activity_id)
-        if kind not in ACTIVITY_RESOURCE_KINDS:
-            raise ValueError(f"invalid kind: {kind!r}")
+        kind_list = list(dict.fromkeys(kinds))
+        for kind in kind_list:
+            if kind not in _PENDING_KINDS:
+                raise ValueError(f"invalid kind: {kind!r}")
 
         def work(conn: sqlite3.Connection) -> None:
             if (
@@ -354,11 +363,13 @@ class ArchiveWriter:
                 is None
             ):
                 raise StorageError(f"Activity {activity_id} not found in archive")
-            conn.execute(
-                "INSERT INTO activity_resources (activity_id, kind, state, last_attempt_at_utc)"
-                " VALUES (?, ?, ?, NULL) ON CONFLICT (activity_id, kind) DO NOTHING",
-                (activity_id, kind, STATE_PENDING),
-            )
+            for kind in kind_list:
+                conn.execute(
+                    "INSERT INTO activity_resources (activity_id, kind, state)"
+                    " VALUES (?, ?, ?)"
+                    " ON CONFLICT (activity_id, kind) DO UPDATE SET state = excluded.state",
+                    (activity_id, kind, STATE_PENDING),
+                )
 
         self._run(work)
 
