@@ -18,6 +18,9 @@ from garmin_archive.models import (
 
 BASE_URL = "https://personal.connectapi.garmin.com"
 TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token"
+DEFAULT_MAX_ATTEMPTS = 5
+MAX_RETRY_AFTER_SECONDS = 300
+BACKOFF_BASE_SECONDS = 1.0
 DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=30.0, pool=10.0)
 
 
@@ -28,6 +31,7 @@ class ApiResponse:
     status: int
     content_type: str | None
     body: bytes
+    retry_after: str | None = None
 
 
 def default_http_client() -> httpx.Client:
@@ -92,6 +96,7 @@ class GarminApiClient:
             status=response.status_code,
             content_type=response.headers.get("content-type"),
             body=response.content,
+            retry_after=response.headers.get("retry-after"),
         )
 
     @staticmethod
@@ -127,10 +132,68 @@ class GarminApiClient:
             )
         return response
 
+    @staticmethod
+    def _parse_retry_after(value: str | None) -> int | None:
+        """Parse Retry-After as integer seconds; anything else is ignored."""
+        if value is None:
+            return None
+        value = value.strip()
+        if not value.isascii() or not value.isdigit():
+            return None
+        return int(value)
+
     def _request(
-        self, method: str, path: str, params: Mapping[str, str] | None = None
+        self,
+        method: str,
+        path: str,
+        params: Mapping[str, str] | None = None,
+        *,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     ) -> ApiResponse:
-        """Perform a data request and map the status; retry loop wraps ``_attempt``."""
-        response = self._attempt(method, path, params)
-        self._raise_for_status(response, path)
-        return response
+        """Perform a data request with retry on transient failures, then map the status.
+
+        Network errors, 5xx and 429 are retried up to ``max_attempts`` total attempts.
+        A 401 renewal inside ``_attempt`` does not count against this budget.
+        """
+        attempt = 0
+        while True:
+            attempt += 1
+            last = attempt >= max_attempts
+            backoff = BACKOFF_BASE_SECONDS * 2 ** (attempt - 1)
+            try:
+                response = self._attempt(method, path, params)
+            except TransportError as exc:
+                if last:
+                    raise TransportError(
+                        f"{exc} (gave up after {attempt} attempts)",
+                        details={"resource": path, "attempts": attempt},
+                    ) from None
+                self._sleep(backoff)
+                continue
+            status = response.status
+            if status == 429:
+                delay = self._parse_retry_after(response.retry_after)
+                if delay is not None and delay > MAX_RETRY_AFTER_SECONDS:
+                    raise RateLimitError(
+                        f"Rate limited fetching {path}; Retry-After exceeds "
+                        f"{MAX_RETRY_AFTER_SECONDS}s",
+                        details={"status": 429, "resource": path, "attempts": attempt},
+                    )
+                if last:
+                    raise RateLimitError(
+                        f"Rate limited fetching {path} (gave up after {attempt} attempts)",
+                        details={"status": 429, "resource": path, "attempts": attempt},
+                    )
+                self._sleep(delay if delay is not None else backoff)
+                continue
+            if status >= 500:
+                if last:
+                    raise TransportError(
+                        f"Upstream error fetching {path} (HTTP {status}, "
+                        f"gave up after {attempt} attempts)",
+                        details={"status": status, "resource": path, "attempts": attempt},
+                    )
+                self._sleep(backoff)
+                continue
+            self._raise_for_status(response, path)
+            return response

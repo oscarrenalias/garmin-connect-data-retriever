@@ -11,6 +11,8 @@ from garmin_archive.models import (
     AuthenticationFailedError,
     AuthorizationError,
     ContractError,
+    RateLimitError,
+    TransportError,
 )
 
 KEY = "secret-key-123"
@@ -124,3 +126,82 @@ def test_default_client_settings():
         assert None not in (t.connect, t.read, t.write, t.pool)
     finally:
         http.close()
+
+
+def make_recording_client(handler):
+    sleeps: list[float] = []
+    http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
+    return GarminApiClient(KEY, http_client=http, sleep=sleeps.append), sleeps
+
+
+def _data_handler(data_responses, calls):
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == TOKEN_PATH:
+            return httpx.Response(200, text="tok")
+        calls.append(req)
+        item = data_responses[min(len(calls), len(data_responses)) - 1]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    return handler
+
+
+def test_persistent_500_makes_five_attempts():
+    calls: list[httpx.Request] = []
+    client, sleeps = make_recording_client(_data_handler([httpx.Response(500)], calls))
+    with pytest.raises(TransportError):
+        client._request("GET", "/a")
+    assert len(calls) == 5
+    assert sleeps == [1.0, 2.0, 4.0, 8.0]
+
+
+def test_network_error_retried_then_transport_error():
+    calls: list[httpx.Request] = []
+    client, sleeps = make_recording_client(_data_handler([httpx.ConnectError("boom")], calls))
+    with pytest.raises(TransportError):
+        client._request("GET", "/a")
+    assert len(calls) == 5
+    assert len(sleeps) == 4
+
+
+def test_max_attempts_parameter():
+    calls: list[httpx.Request] = []
+    client, _ = make_recording_client(_data_handler([httpx.Response(503)], calls))
+    with pytest.raises(TransportError):
+        client._request("GET", "/a", max_attempts=2)
+    assert len(calls) == 2
+
+
+def test_retry_after_seconds_slept_then_succeeds():
+    calls: list[httpx.Request] = []
+    responses = [httpx.Response(429, headers={"Retry-After": "2"}), httpx.Response(200)]
+    client, sleeps = make_recording_client(_data_handler(responses, calls))
+    assert client._request("GET", "/a").status == 200
+    assert sleeps == [2]
+
+
+def test_retry_after_too_long_raises_without_sleeping():
+    calls: list[httpx.Request] = []
+    responses = [httpx.Response(429, headers={"Retry-After": "600"})]
+    client, sleeps = make_recording_client(_data_handler(responses, calls))
+    with pytest.raises(RateLimitError):
+        client._request("GET", "/a")
+    assert sleeps == []
+    assert len(calls) == 1
+
+
+def test_persistent_429_raises_rate_limit_after_exhaustion():
+    calls: list[httpx.Request] = []
+    client, _ = make_recording_client(_data_handler([httpx.Response(429)], calls))
+    with pytest.raises(RateLimitError):
+        client._request("GET", "/a")
+    assert len(calls) == 5
+
+
+def test_401_renewal_does_not_consume_retry_budget():
+    calls: list[httpx.Request] = []
+    responses = [httpx.Response(401), httpx.Response(500), httpx.Response(200)]
+    client, sleeps = make_recording_client(_data_handler(responses, calls))
+    assert client._request("GET", "/a").status == 200
+    assert sleeps == [1.0]
