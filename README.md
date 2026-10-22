@@ -19,6 +19,46 @@ GARMIN_ARCHIVE_DB=./my-archive.db garmin-archive init
 migrations. It is idempotent: running it again on an up-to-date database applies nothing. It
 needs no credentials and makes no network calls.
 
+### Archiving activities: `garmin-archive update`
+
+```bash
+garmin-archive update          # new, changed, recent and unfinished resources
+garmin-archive update --full   # re-fetch every resource of every activity
+```
+
+`update` discovers every accessible activity (all sports) through the activity search and
+archives each activity's summary, workouts and original file, byte-exact, in the database. It
+needs an API key (see above) and a database created by `garmin-archive init`: it never creates
+or migrates a database, and a missing one is a storage error (exit 5). It holds the writer lock
+for the whole run (`ARCHIVE_LOCKED` if another writer has it).
+
+By default a run fetches resources of activities that are new, whose search item changed, or
+that started in the last 14 days, plus any resource still `pending` or `failed`. `--full`
+fetches all three resources for every activity.
+
+**Re-running.** There is no resume command. Pending work is stored durably, so after a
+`partial` or `interrupted` run (or a crash) just run `update` again; run `update --full` again
+to continue an interrupted full refresh. `unavailable` (404) and `forbidden` (403) resources
+are known outcomes, not failures. Nothing already archived is ever deleted.
+
+**Ctrl-C** stops the run cleanly between pages and resources. It is recorded as
+`interrupted`, the JSON report is still written and the exit code is 130.
+
+Output `data` fields:
+
+| Field | Meaning |
+| ----- | ------- |
+| `run_id` | Id of the `sync_runs` row for this run |
+| `status` | `complete`, `partial` or `interrupted` (a `failed` run is reported as an error instead) |
+| `counters` | `discovered`, `new`, `changed`, `downloaded`, `unchanged`, `unavailable`, `forbidden`, `failed` |
+| `coverage` | Per resource kind (`summary`, `workouts`, `original_file`), counts by state across the whole archive |
+| `inventory` | `complete` if discovery reached the end of the search results, else `incomplete` |
+| `incomplete_reason` | Why discovery stopped early, or `null` |
+| `pending` | Number of resources still waiting to be fetched |
+| `hint` | `null` when complete; otherwise a prompt to run `update` (or `update --full`) again |
+
+A run is `complete` only when discovery reached the end and nothing is `failed` or `pending`.
+
 ### API key and auth commands
 
 Commands that call Garmin need a Personal API key. The key is read from, in order:
@@ -101,10 +141,11 @@ Implemented so far (full table in [SPEC §9](docs/SPEC.md)):
 | 2 | Invalid arguments (`INVALID_ARGUMENT`) |
 | 3 | Authentication or authorization failure (`MISSING_API_KEY`, `AUTH_FAILED`, `AUTHORIZATION_ERROR`), or `ACCOUNT_MISMATCH` (database is bound to a different Garmin account) |
 | 4 | Transport, rate-limit or contract failure (`TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_ERROR`) |
-| 5 | Storage failure (`StorageError` and subclasses, such as `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`) |
+| 5 | Storage failure (`StorageError` and subclasses, such as `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`, or a missing or uninitialized database) |
+| 6 | `update` finished `partial`: some resources are `failed` or `pending`, or discovery was incomplete; run `update` again |
 | 130 | Interrupted (Ctrl-C) |
 
-Codes 6, 7 and 8 are reserved for later features.
+Codes 7 and 8 are reserved for later features. `update` uses 0, 6 and 130 for run outcomes and 3, 4 and 5 for failures (4 also covers an API error before anything was archived).
 
 ### Storage notes
 
