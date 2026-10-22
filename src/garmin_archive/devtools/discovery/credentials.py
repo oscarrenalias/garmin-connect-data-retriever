@@ -46,8 +46,12 @@ class SecretStr:
 
 def _unquote(value: str) -> str:
     value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        return value[1:-1]
+    if value[:1] in ("'", '"'):
+        end = value.find(value[0], 1)
+        if end != -1 and (
+            not value[end + 1 :].strip() or value[end + 1 :].lstrip().startswith("#")
+        ):
+            return value[1:end]
     # Unquoted values: strip trailing inline comment.
     for i, ch in enumerate(value):
         if ch == "#" and i > 0 and value[i - 1].isspace():
