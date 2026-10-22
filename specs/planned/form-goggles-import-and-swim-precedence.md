@@ -1,16 +1,16 @@
 ---
 name: FORM goggles import and swim precedence
 id: spec-8912abbd
-description:
-dependencies:
-priority:
-complexity:
-status: draft
+description: null
+dependencies: null
+priority: null
+complexity: null
+status: planned
 tags: []
 scope:
-  in:
-  out:
-feature_root_id:
+  in: null
+  out: null
+feature_root_id: B-905515b0
 ---
 # FORM goggles import and swim precedence
 
