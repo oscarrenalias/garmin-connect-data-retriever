@@ -5,7 +5,7 @@ description: "SQLite connections, atomic checksummed migrations, SPEC §5.2 sche
 dependencies: null
 priority: high
 complexity: null
-status: draft
+status: planned
 tags:
 - storage
 - migrations
@@ -13,7 +13,7 @@ tags:
 scope:
   in: null
   out: null
-feature_root_id: null
+feature_root_id: B-e4b32239
 ---
 # Storage foundation: SQLite connections, migrations and archive schema
 
