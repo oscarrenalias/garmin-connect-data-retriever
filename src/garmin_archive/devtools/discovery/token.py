@@ -7,7 +7,7 @@ itself are never written anywhere; the token lives in memory in a `SecretStr`.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from garmin_archive.devtools.discovery.credentials import SecretStr
@@ -167,5 +167,3 @@ def _ok(response: HttpResponse) -> bool:
 
 
 __all__ = ["TokenStepResult", "acquire_token", "auto_token_field", "describe_token_body"]
-
-_unused: field[None] | None = None
