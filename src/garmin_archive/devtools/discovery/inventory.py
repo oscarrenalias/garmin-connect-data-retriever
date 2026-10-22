@@ -11,7 +11,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from garmin_archive.devtools.discovery.credentials import SecretStr
 from garmin_archive.devtools.discovery.http import DiscoveryHttp, HttpResponse, RetriesExhausted
@@ -52,18 +52,18 @@ def parse_items(body: bytes) -> list[Item] | None:
         return None
     candidate: object = parsed
     if isinstance(parsed, dict):
+        obj = cast("dict[str, object]", parsed)
         candidate = None
         for key in ("activityList", "activities", "items"):
-            value: object = parsed.get(key)  # pyright: ignore[reportUnknownMemberType]
-            if isinstance(value, list):
-                candidate = value
+            if isinstance(obj.get(key), list):
+                candidate = obj[key]
                 break
     if not isinstance(candidate, list):
         return None
     items: list[Item] = []
-    for entry in candidate:  # pyright: ignore[reportUnknownVariableType]
+    for entry in cast("list[object]", candidate):
         if isinstance(entry, dict):
-            items.append(entry)  # pyright: ignore[reportUnknownArgumentType]
+            items.append(cast("Item", entry))
     return items
 
 
@@ -100,8 +100,9 @@ def _type_info(item: Item) -> tuple[str | None, str | None]:
     activity_type = item.get("activityType")
     if not isinstance(activity_type, Mapping):
         return None, None
-    key: object = activity_type.get("typeKey")  # pyright: ignore[reportUnknownMemberType]
-    parent: object = activity_type.get("parentTypeId")  # pyright: ignore[reportUnknownMemberType]
+    fields = cast("Mapping[str, object]", activity_type)
+    key = fields.get("typeKey")
+    parent = fields.get("parentTypeId")
     return (
         key if isinstance(key, str) else None,
         str(parent) if parent is not None else None,
