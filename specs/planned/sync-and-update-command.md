@@ -5,12 +5,12 @@ description: null
 dependencies: null
 priority: high
 complexity: null
-status: draft
+status: planned
 tags: []
 scope:
   in: null
   out: null
-feature_root_id: null
+feature_root_id: B-0c108a9e
 ---
 # Sync and update command
 
