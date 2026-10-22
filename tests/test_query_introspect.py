@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from garmin_archive.models import InvalidQueryError
-from garmin_archive.query import describe, sample, schema
+from garmin_archive.query import REGISTRY, describe, sample, schema
 from garmin_archive.storage.connection import open_read_connection
 
 
@@ -93,3 +93,22 @@ def test_sample_output_budget(conn: sqlite3.Connection) -> None:
 def test_sample_bad_limit(conn: sqlite3.Connection, limit: int) -> None:
     with pytest.raises(InvalidQueryError):
         sample(conn, "activities", limit)
+
+
+def test_schema_returns_notes_for_every_object(tmp_path: Path) -> None:
+    path = tmp_path / "notes.db"
+    w = sqlite3.connect(path)
+    for entry in REGISTRY:
+        w.execute(f'CREATE TABLE "{entry.name}" (id TEXT PRIMARY KEY)')
+    w.commit()
+    w.close()
+    c = open_read_connection(path, busy_timeout_ms=1000)
+    try:
+        objs = {o["name"]: o for o in schema(c)["data"]["objects"]}
+    finally:
+        c.close()
+    assert set(objs) == {e.name for e in REGISTRY}
+    for obj in objs.values():
+        assert isinstance(obj["notes"], list)
+    for name in ("v_swimming", "v_swim_lengths", "v_activity_summary", "raw_payloads"):
+        assert objs[name]["notes"]
