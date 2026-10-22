@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 
@@ -60,6 +61,22 @@ _ACTIVITY_KEY_PATTERNS: dict[str, re.Pattern[str]] = {
     KIND_WORKOUTS: re.compile(r"^workouts:(\d+)$"),
     KIND_ORIGINAL_FILE: re.compile(r"^original_file:(\d+)$"),
 }
+
+_SENSITIVE_PARAM_KEY = re.compile(r"(auth|token|key|secret|password|cookie)", re.IGNORECASE)
+
+
+def serialize_request_params(params: Mapping[str, str | int | bool] | None) -> str | None:
+    """Return compact sorted JSON for request params, or ``None`` when absent.
+
+    Raises ``ValueError`` for credential-like keys. Values are never inspected
+    or included in the error message.
+    """
+    if params is None:
+        return None
+    for name in params:
+        if _SENSITIVE_PARAM_KEY.search(name):
+            raise ValueError(f"request param name {name!r} looks like a credential")
+    return json.dumps(params, sort_keys=True, separators=(",", ":"))
 
 
 def validate_resource_key(resource_key: str, kind: str, activity_id: str | None) -> None:
