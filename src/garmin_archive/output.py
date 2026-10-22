@@ -42,7 +42,7 @@ def error(
             "code": code,
             "message": message,
             "retryable": retryable,
-            "details": details,
+            "details": {} if details is None else details,
         },
     }
 
