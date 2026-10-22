@@ -37,7 +37,7 @@ def test_fingerprint_depends_on_each_input() -> None:
 
 
 def test_processor_version_includes_sports_version() -> None:
-    assert processor_version().endswith("+sports1")
+    assert processor_version().endswith("+sports2")
 
 
 def test_load_inputs_with_everything(conn: sqlite3.Connection, clock: FixedClock) -> None:

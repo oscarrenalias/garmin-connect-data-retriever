@@ -25,6 +25,11 @@ EXPECTED_TABLES = {
     "activity_laps",
     "activity_samples",
     "activity_sets",
+    "running_metrics",
+    "swimming_metrics",
+    "cycling_metrics",
+    "cardio_metrics",
+    "swim_lengths",
 }
 EXPECTED_INDEXES = {
     "idx_raw_payloads_activity_kind",
