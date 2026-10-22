@@ -174,6 +174,99 @@ def build_report(inputs: ReportInputs) -> dict[str, Any]:
     return report
 
 
+SPEC_2_3_TITLES: dict[str, str] = {
+    "1_token_and_header": "Token field and Bearer header",
+    "2_pagination": "Pagination and ordering",
+    "3_history": "History restrictions",
+    "4_detail_and_zip_by_sport": "Detail and ZIP by sport",
+    "5_manual_multisport_type_keys": "Manual and multisport type keys",
+    "6_rate_limits_and_missing_files": "Rate limits and missing files",
+}
+
+
+def _cell(value: object) -> str:
+    """Render one value on a single line, escaped for a Markdown table cell."""
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, Mapping):
+        mapping: Mapping[str, Any] = value  # pyright: ignore[reportUnknownVariableType]
+        text = ", ".join(f"{k}={_cell(v)}" for k, v in mapping.items())
+    elif isinstance(value, (list, tuple)):
+        items: list[Any] = list(value)  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+        text = ", ".join(_cell(v) for v in items) or "-"
+    else:
+        text = str(value)
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _kv_lines(data: Mapping[str, Any]) -> list[str]:
+    lines = ["| Field | Value |", "| --- | --- |"]
+    lines.extend(f"| {_cell(k)} | {_cell(v)} |" for k, v in data.items())
+    return lines
+
+
+def _rows_lines(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    columns: list[str] = []
+    for row in rows:
+        columns.extend(k for k in row if k not in columns)
+    if not columns:
+        return ["_none_"]
+    lines = ["| " + " | ".join(_cell(c) for c in columns) + " |"]
+    lines.append("| " + " | ".join("---" for _ in columns) + " |")
+    lines.extend("| " + " | ".join(_cell(row.get(c)) for c in columns) + " |" for row in rows)
+    return lines
+
+
+def _section_lines(title: str, data: Mapping[str, Any] | None) -> list[str]:
+    lines = [f"## {title}", ""]
+    lines.extend(_kv_lines(data) if data else ["_none_"])
+    return [*lines, ""]
+
+
+def render_markdown(report: Mapping[str, Any]) -> str:
+    """Render a built report as `contract-report.md`. Only report data is used."""
+    out: list[str] = [
+        "# Contract report",
+        "",
+        f"- Run: {_cell(report.get('run_id'))}",
+        f"- Report version: {_cell(report.get('report_version'))}",
+        f"- Outcome: {_cell(report.get('outcome'))}",
+        "",
+        "## SPEC §2.3 items 1-6",
+        "",
+        "| # | Item | Status |",
+        "| --- | --- | --- |",
+    ]
+    spec: Mapping[str, Any] = report.get("spec_2_3") or {}
+    for key in SPEC_2_3_KEYS:
+        number = key.split("_", 1)[0]
+        out.append(
+            f"| {number} | {SPEC_2_3_TITLES[key]} | {_cell(spec.get(key, STATUS_UNKNOWN))} |"
+        )
+    out.append("")
+    for title, key in (
+        ("Token shape", "token"),
+        ("Header convention", "header_convention"),
+        ("Pagination", "pagination"),
+        ("Page size cap", "page_size_cap"),
+        ("Ordering", "ordering"),
+        ("Inventory counts", "inventory"),
+    ):
+        out.extend(_section_lines(title, report.get(key)))
+    out.extend(["## Samples", ""])
+    out.extend(_rows_lines(report.get("samples") or []))
+    out.append("")
+    categories: Mapping[str, Mapping[str, Any]] = report.get("categories") or {}
+    out.extend(["## Categories", ""])
+    out.extend(_rows_lines([{"category": k, **v} for k, v in categories.items()]))
+    out.append("")
+    out.extend(_section_lines("HTTP findings", report.get("http")))
+    out.extend(_section_lines("Leak check", report.get("leak_check")))
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
 __all__ = [
     "FINDING_STATUSES",
     "OUTCOMES",
@@ -182,4 +275,5 @@ __all__ = [
     "ReportInputs",
     "build_report",
     "derive_spec_2_3",
+    "render_markdown",
 ]
