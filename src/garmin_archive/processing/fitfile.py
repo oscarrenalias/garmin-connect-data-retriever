@@ -82,6 +82,8 @@ def decode_fit(data: bytes) -> FitMessages:
     """
     try:
         decoder = Decoder(Stream.from_byte_array(bytearray(data)))
+        if not decoder.is_fit():
+            raise FitUnavailableError("FIT file could not be decoded")
         raw_messages, errors = decoder.read()
     except Exception as exc:
         raise FitUnavailableError("FIT file could not be decoded") from exc

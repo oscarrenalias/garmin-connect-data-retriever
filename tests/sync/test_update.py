@@ -726,3 +726,83 @@ def _no_stray_handlers() -> Iterator[None]:
     before = signal.getsignal(signal.SIGINT)
     yield
     signal.signal(signal.SIGINT, before)
+
+
+# ---- activity processing at the end of update (spec-939594b5, criterion 9) --------------
+
+
+def test_update_processes_fetched_activities_and_reports_counters(archive: Archive) -> None:
+    fake = FakeGarmin(12)
+    result = archive.update(fake)
+    assert result.status == "complete"
+    assert result.processed == 12
+    assert result.processing_failed == 0
+    data = result.to_dict()
+    assert data["processed"] == 12
+    assert data["processing_failed"] == 0
+    assert archive.scalar("SELECT COUNT(*) FROM activities") == 12
+    assert archive.scalar("SELECT COUNT(*) FROM processing_runs") == 12
+    assert archive.scalar("SELECT COUNT(DISTINCT sport_family) FROM activities") >= 3
+
+    # Nothing changed upstream: the second update processes nothing.
+    archive.clock.current = T0 + timedelta(days=1)
+    again = archive.update(fake)
+    assert again.processed == 0
+    assert again.processing_failed == 0
+    assert archive.scalar("SELECT COUNT(*) FROM processing_runs") == 12
+
+
+def test_update_cli_output_has_processing_counters(
+    archive: Archive, cli: Callable[..., CliRun]
+) -> None:
+    result = cli(archive, FakeGarmin(5))
+    assert result.code == 0
+    assert result.doc["data"]["processed"] == 5
+    assert result.doc["data"]["processing_failed"] == 0
+
+
+def test_update_counts_partial_activities_as_processed(archive: Archive) -> None:
+    fake = FakeGarmin(6)
+    broken = fake.activity_ids[3]
+    fake.files[broken] = b"not a zip"
+    result = archive.update(fake)
+    assert result.status == "complete"
+    assert result.processed == 6
+    assert result.processing_failed == 0
+    assert (
+        archive.scalar("SELECT processing_status FROM activities WHERE activity_id = ?", broken)
+        == "partial"
+    )
+
+
+def test_processing_failure_leaves_sync_status_complete(archive: Archive) -> None:
+    fake = FakeGarmin(6)
+    with closing(archive.connect()) as conn:
+        conn.execute(
+            "CREATE TRIGGER boom BEFORE INSERT ON activities"
+            f" WHEN NEW.activity_id = '{fake.activity_ids[2]}'"
+            " BEGIN SELECT RAISE(ABORT, 'injected'); END"
+        )
+        conn.commit()
+    result = archive.update(fake)
+    assert result.status == "complete"
+    assert result.processing_failed == 1
+    assert result.processed == 5
+    assert archive.last_run()[0] == "complete"
+
+
+def test_processing_exception_leaves_sync_status_complete(
+    archive: Archive, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from garmin_archive.models import StorageError
+    from garmin_archive.sync import update as update_module
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise StorageError("processing exploded")
+
+    monkeypatch.setattr(update_module, "process_pending", boom)
+    result = archive.update(FakeGarmin(4))
+    assert result.status == "complete"
+    assert result.processing_failed > 0
+    assert result.processed == 0
+    assert archive.last_run()[0] == "complete"
