@@ -17,7 +17,7 @@ import httpx
 from garmin_fit_sdk import Decoder, Stream
 
 from garmin_archive.archive import ArchiveWriter
-from garmin_archive.clock import Clock
+from garmin_archive.models import Clock
 from garmin_archive.processing.fitfile import FitUnavailableError, zip_member_contents
 from garmin_archive.processing.form import rebuild_form
 from garmin_archive.processing.form_download import FormDownloadError, download_form_zip

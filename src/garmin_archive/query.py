@@ -74,10 +74,19 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "swim_lengths", "Pool swim lengths from FIT length records.", "one row per length"
     ),
     RegistryEntry(
+        "form_sessions",
+        "FORM-recorded sessions and their match to a Garmin swim.",
+        "one row per FORM FIT session",
+    ),
+    RegistryEntry(
+        "form_lengths", "Pool swim lengths from FORM FIT length records.", "one row per length"
+    ),
+    RegistryEntry(
         "v_activity_summary",
         "All activities with include_in_volume_totals flag.",
         "one row per activity",
         notes=(
+            "Garmin values for Garmin activities, even when FORM data exists, so swim totals here can differ from v_swimming; rows with `data_source = 'form'` are goggle-only swims.",
             "Sum volume with include_in_volume_totals = 1 to avoid double-counting multisport parent and child activities.",
             "Some sports genuinely report distance_m = 0.0 (cardio, hiit, mobility); exclude them from distance or pace questions.",
             "sport_family values come from the data (SELECT DISTINCT sport_family); filter on sport_family or type_key, never on names.",
@@ -97,6 +106,7 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "Swimming activities joined with swimming metrics.",
         "one row per swimming activity",
         notes=(
+            "Pool swims prefer FORM goggle data when available (`data_source`); Garmin originals are in `garmin_*`. HR, calories and training metrics are always Garmin.",
             "swim_environment is pool or open_water; open water has no lengths and no pool length, so use totals, laps and samples.",
             "length_coverage_status: complete means the per-length rows match the summary; partial means the lengths were edited in Garmin Connect, so totals come from the edited summary and the per-length rows reflect the device recording; none means there are no length rows.",
             "active_pace_s_per_100m excludes rest; timer_pace_s_per_100m includes rest.",
@@ -108,6 +118,7 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "Swim lengths joined with activity context.",
         "one row per swim length",
         notes=(
+            "Pool swims prefer FORM goggle data when available (`data_source`); Garmin originals are in `garmin_*`. HR, calories and training metrics are always Garmin.",
             "`likely_unrecorded_swim` is a HEURISTIC: idle ≥ 60 s with HR ≥ 90% of the swim's active-length HR, which suggests kicking or drills the watch did not detect. NULL = no HR data.",
             "Idle lengths are included with distance_m IS NULL; filter length_type = 'active' for pace and stroke work.",
             "Use only swims with length_coverage_status = 'complete' for per-length analysis, and compare within the same pool length.",
