@@ -103,6 +103,22 @@ def _length_time_s(lengths: Sequence[Mapping[str, Any]], length_type: str) -> fl
     return float(sum(values)) if values else None
 
 
+def _idle_elapsed_s(lengths: Sequence[Mapping[str, Any]], flagged: bool) -> float | None:
+    """Elapsed seconds of idle lengths, split by the unrecorded-swim flag; None without lengths."""
+    if not lengths:
+        return None
+    return float(
+        sum(
+            value
+            for row in lengths
+            if row.get("length_type") == "idle"
+            and (row.get("likely_unrecorded_swim") == 1) == flagged
+            and not isinstance(value := row.get("elapsed_duration_s"), bool)
+            and isinstance(value, int | float)
+        )
+    )
+
+
 def _length_coverage(
     lengths: Sequence[Mapping[str, Any]],
     summary_distance_m: float | int | None,
@@ -160,6 +176,8 @@ def swimming_metrics_row(
         "avg_stroke_rate_spm": _number(dto, "averageSwimCadence"),
         "active_swim_duration_s": _length_time_s(lengths, "active") if has_lengths else None,
         "recorded_rest_duration_s": _length_time_s(lengths, "idle") if has_lengths else None,
+        "probable_rest_duration_s": _idle_elapsed_s(lengths, False),
+        "likely_unrecorded_swim_duration_s": _idle_elapsed_s(lengths, True),
         "length_coverage_status": _length_coverage(
             lengths, _number(dto, "distance"), active_lengths, pool_length_m
         ),

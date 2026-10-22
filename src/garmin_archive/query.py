@@ -100,6 +100,7 @@ REGISTRY: tuple[RegistryEntry, ...] = (
             "swim_environment is pool or open_water; open water has no lengths and no pool length, so use totals, laps and samples.",
             "length_coverage_status: complete means the per-length rows match the summary; partial means the lengths were edited in Garmin Connect, so totals come from the edited summary and the per-length rows reflect the device recording; none means there are no length rows.",
             "active_pace_s_per_100m excludes rest; timer_pace_s_per_100m includes rest.",
+            "`probable_rest_duration_s` excludes idle time flagged as likely unrecorded swimming; `recorded_rest_duration_s` is the device's raw idle time. Both are estimates, so state which one you use.",
         ),
     ),
     RegistryEntry(
@@ -107,6 +108,7 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "Swim lengths joined with activity context.",
         "one row per swim length",
         notes=(
+            "`likely_unrecorded_swim` is a HEURISTIC: idle ≥ 60 s with HR ≥ 90% of the swim's active-length HR, which suggests kicking or drills the watch did not detect. NULL = no HR data.",
             "Idle lengths are included with distance_m IS NULL; filter length_type = 'active' for pace and stroke work.",
             "Use only swims with length_coverage_status = 'complete' for per-length analysis, and compare within the same pool length.",
             "Stroke counts follow the watch's convention (backstroke counts one arm), so compare a stroke with itself over time.",
