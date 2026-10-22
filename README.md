@@ -170,7 +170,7 @@ garmin-archive sql --query "SELECT * FROM activities WHERE local_date >= :since"
 
 | Command | Behavior |
 | ------- | -------- |
-| `schema` | Lists every queryable object present in the database, with kind, description, grain and columns (`name`, `type`, `pk`), plus the schema version |
+| `schema` | Lists every queryable object present in the database, with kind, description, grain, columns (`name`, `type`, `pk`) and `notes`, plus the schema version |
 | `describe NAME` | Same details for one object, plus `row_count` |
 | `sample NAME [--limit N]` | First `N` rows (default 5, maximum 100,000), ordered by primary key, else `rowid` (tables), else the first column (views) |
 | `sql --query SQL` | Runs one read-only statement. `--params` is a JSON object of named parameters bound separately from the SQL (`:name` in the query); `--limit` caps returned rows; `--timeout` is the execution budget in seconds |
@@ -180,6 +180,11 @@ garmin-archive sql --query "SELECT * FROM activities WHERE local_date >= :since"
 per-sport metric tables), the `v_*` views, and the archive tables `raw_payloads`,
 `activity_archive`, `activity_resources` and `sync_runs`. `schema` shows what exists in your
 database. `describe` and `sample` reject any other name (`INVALID_QUERY`).
+
+`notes` is a list of short data-semantics strings per object (for example, to sum volume with
+`include_in_volume_totals = 1`, or that NULL power means not recorded). It is empty for objects
+without notes. The notes live in the library's query registry, so `schema` and `describe` are the
+place to read them.
 
 **Security model.** Queries run on a separate connection with `PRAGMA query_only=ON` and an
 SQLite authorizer that denies writes, DDL, `ATTACH`, transaction control, `PRAGMA`, extension

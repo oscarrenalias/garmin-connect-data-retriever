@@ -1,5 +1,7 @@
 """Read-only SQL interface: queryable-object registry and live-schema introspection."""
 
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 import contextlib
@@ -23,6 +25,7 @@ class RegistryEntry:
     name: str
     description: str
     grain: str
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -41,14 +44,23 @@ class QueryableObject:
     description: str
     grain: str
     columns: tuple[ColumnInfo, ...]
+    notes: tuple[str, ...] = ()
 
 
 # Explicit allowlist; never derived from globbing at runtime.
+# Notes are single-sentence strings; long lines are intentional (ruff: E501 off for them).
 REGISTRY: tuple[RegistryEntry, ...] = (
     RegistryEntry("activities", "Canonical activity summary rows.", "one row per activity"),
     RegistryEntry("activity_sessions", "FIT session records per activity.", "one row per session"),
     RegistryEntry("activity_laps", "FIT lap records per activity.", "one row per lap"),
-    RegistryEntry("activity_samples", "FIT record samples per activity.", "one row per sample"),
+    RegistryEntry(
+        "activity_samples",
+        "FIT record samples per activity.",
+        "one row per sample",
+        notes=(
+            "Rows are at the device's native rate, not resampled; running cadence is steps/min (cadence_unit = 'spm') and other sports keep the raw FIT value (fit_rpm).",
+        ),
+    ),
     RegistryEntry(
         "activity_sets", "FIT set records (e.g. strength) per activity.", "one row per set"
     ),
@@ -65,30 +77,61 @@ REGISTRY: tuple[RegistryEntry, ...] = (
         "v_activity_summary",
         "All activities with include_in_volume_totals flag.",
         "one row per activity",
+        notes=(
+            "Sum volume with include_in_volume_totals = 1 to avoid double-counting multisport parent and child activities.",
+            "Some sports genuinely report distance_m = 0.0 (cardio, hiit, mobility); exclude them from distance or pace questions.",
+            "sport_family values come from the data (SELECT DISTINCT sport_family); filter on sport_family or type_key, never on names.",
+        ),
     ),
     RegistryEntry(
         "v_running",
         "Running activities joined with running metrics.",
         "one row per running activity",
+        notes=(
+            "Garmin labels run/walk sessions as running; estimate the walking share from activity_samples (cadence_unit = 'spm', cadence < 120) to separate steady runs.",
+            "Compare fitness via pace at a similar HR (laps filtered by avg_hr_bpm) or distance per heartbeat, not raw pace alone.",
+        ),
     ),
     RegistryEntry(
         "v_swimming",
         "Swimming activities joined with swimming metrics.",
         "one row per swimming activity",
+        notes=(
+            "swim_environment is pool or open_water; open water has no lengths and no pool length, so use totals, laps and samples.",
+            "length_coverage_status: complete means the per-length rows match the summary; partial means the lengths were edited in Garmin Connect, so totals come from the edited summary and the per-length rows reflect the device recording; none means there are no length rows.",
+            "active_pace_s_per_100m excludes rest; timer_pace_s_per_100m includes rest.",
+        ),
     ),
     RegistryEntry(
-        "v_swim_lengths", "Swim lengths joined with activity context.", "one row per swim length"
+        "v_swim_lengths",
+        "Swim lengths joined with activity context.",
+        "one row per swim length",
+        notes=(
+            "Idle lengths are included with distance_m IS NULL; filter length_type = 'active' for pace and stroke work.",
+            "Use only swims with length_coverage_status = 'complete' for per-length analysis, and compare within the same pool length.",
+            "Stroke counts follow the watch's convention (backstroke counts one arm), so compare a stroke with itself over time.",
+            "Distance per stroke = SUM(distance_m) / SUM(stroke_count).",
+        ),
     ),
     RegistryEntry(
         "v_cycling",
         "Cycling activities joined with cycling metrics.",
         "one row per cycling activity",
+        notes=(
+            "Power and cadence are NULL when no sensor was used; NULL means not recorded, not zero.",
+        ),
     ),
     RegistryEntry(
         "v_cardio", "Cardio activities joined with cardio metrics.", "one row per cardio activity"
     ),
     RegistryEntry(
-        "raw_payloads", "Archived raw API response bodies.", "one row per payload version"
+        "raw_payloads",
+        "Archived raw API response bodies.",
+        "one row per payload version",
+        notes=(
+            "Keeps every payload version; for an activity's current raw JSON, join activity_resources.current_payload_id = raw_payloads.id and don't count raw_payloads rows directly.",
+            "Query JSON with json_extract(body_text, ...).",
+        ),
     ),
     RegistryEntry("activity_archive", "Archive state per Garmin activity.", "one row per activity"),
     RegistryEntry(
@@ -132,7 +175,12 @@ def list_queryable(conn: sqlite3.Connection) -> list[QueryableObject]:
             continue
         result.append(
             QueryableObject(
-                entry.name, kind, entry.description, entry.grain, _columns(conn, entry.name)
+                entry.name,
+                kind,
+                entry.description,
+                entry.grain,
+                _columns(conn, entry.name),
+                entry.notes,
             )
         )
     return result
@@ -355,6 +403,7 @@ def _object_dict(obj: QueryableObject) -> dict[str, Any]:
         "description": obj.description,
         "grain": obj.grain,
         "columns": [{"name": c.name, "type": c.type, "pk": c.pk} for c in obj.columns],
+        "notes": list(obj.notes),
     }
 
 
