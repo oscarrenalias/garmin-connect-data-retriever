@@ -124,3 +124,45 @@ def swimming_metrics_row(
         "recorded_rest_duration_s": _length_time_s(lengths, "idle") if has_lengths else None,
         "length_coverage_status": "complete" if has_lengths else "none",
     }
+
+
+def _int(value: float | int | None) -> int | None:
+    return None if value is None else int(value)
+
+
+def _set_values(sets: Sequence[Mapping[str, Any]], set_type: str, column: str) -> list[float | int]:
+    return [
+        value
+        for row in sets
+        if row.get("set_type") == set_type
+        and not isinstance(value := row.get(column), bool)
+        and isinstance(value, int | float)
+    ]
+
+
+def cardio_metrics_row(
+    summary: Mapping[str, Any], set_rows: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Return ``cardio_metrics`` metric columns.
+
+    ``steps``, ``total_sets`` and ``active_sets`` come from the summary (``active_sets`` falls
+    back to the count of active ``activity_sets`` rows when the summary omits it). Reps and set
+    durations are summed from ``set_rows`` by ``set_type``; a sum is ``None`` when no matching
+    row carries a value. No intervals are derived from heart rate.
+    """
+    dto = _dto(summary)
+    active_sets = _int(_number(dto, "activeSets"))
+    if active_sets is None:
+        active_count = sum(1 for row in set_rows if row.get("set_type") == "active")
+        active_sets = active_count or None
+    reps = _set_values(set_rows, "active", "repetitions")
+    active_s = _set_values(set_rows, "active", "duration_s")
+    rest_s = _set_values(set_rows, "rest", "duration_s")
+    return {
+        "steps": _int(_number(dto, "steps")),
+        "total_sets": _int(_number(dto, "totalSets")),
+        "active_sets": active_sets,
+        "total_reps": int(sum(reps)) if reps else None,
+        "active_set_duration_s": float(sum(active_s)) if active_s else None,
+        "rest_set_duration_s": float(sum(rest_s)) if rest_s else None,
+    }
