@@ -68,6 +68,14 @@ def exit_code_for(exc: BaseException) -> int:
     return 1
 
 
+_RUN_STATUS_EXIT_CODES = {"complete": 0, "partial": 6, "interrupted": 130}
+
+
+def exit_code_for_run_status(status: str) -> int:
+    """Map a finished sync run status to the CLI process exit code (SPEC §9)."""
+    return _RUN_STATUS_EXIT_CODES.get(status, 1)
+
+
 def emit(document: dict[str, Any], stream: TextIO) -> None:
     """Write exactly one JSON document followed by a newline."""
     stream.write(json.dumps(document, ensure_ascii=False))
