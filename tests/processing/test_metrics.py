@@ -109,8 +109,53 @@ def test_pool_swim_metrics_from_fixture_and_lengths() -> None:
     assert row["avg_swolf"] == 39.0
     assert row["active_swim_duration_s"] == pytest.approx(45.5)
     assert row["recorded_rest_duration_s"] == pytest.approx(15.0)
-    assert row["length_coverage_status"] == "complete"
+    assert row["length_coverage_status"] == "partial"
     assert warnings == []
+
+
+def _pool_lengths(count: int, pool_m: float = 25.0) -> list[dict[str, Any]]:
+    return [
+        {"length_type": "active", "timer_duration_s": 20.0, "distance_m": pool_m}
+        for _ in range(count)
+    ]
+
+
+def _swim_summary(distance: float, active_lengths: int) -> dict[str, Any]:
+    return _dto(
+        distance=distance,
+        numberOfActiveLengths=active_lengths,
+        poolLength=25.0,
+        unitOfPoolLength={"unitKey": "meter"},
+    )
+
+
+def test_consistent_swim_is_complete() -> None:
+    row = swimming_metrics_row("lap_swimming", _swim_summary(1175.0, 47), _pool_lengths(47), [])
+    assert row["length_coverage_status"] == "complete"
+
+
+@pytest.mark.parametrize("fit_count", [47, 58])
+def test_edited_summary_gives_partial_in_both_directions(fit_count: int) -> None:
+    summary = _swim_summary(
+        58 * 25.0 if fit_count == 47 else 47 * 25.0, 58 if fit_count == 47 else 47
+    )
+    row = swimming_metrics_row("lap_swimming", summary, _pool_lengths(fit_count), [])
+    assert row["length_coverage_status"] == "partial"
+
+
+def test_distance_mismatch_alone_gives_partial() -> None:
+    row = swimming_metrics_row("lap_swimming", _swim_summary(1200.0, 47), _pool_lengths(47), [])
+    assert row["length_coverage_status"] == "partial"
+
+
+def test_distance_within_half_pool_length_is_complete() -> None:
+    row = swimming_metrics_row("lap_swimming", _swim_summary(1185.0, 47), _pool_lengths(47), [])
+    assert row["length_coverage_status"] == "complete"
+
+
+def test_swim_without_lengths_is_none() -> None:
+    row = swimming_metrics_row("lap_swimming", _swim_summary(1175.0, 47), [], [])
+    assert row["length_coverage_status"] == "none"
 
 
 def test_open_water_metrics() -> None:

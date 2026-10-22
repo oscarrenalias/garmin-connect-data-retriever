@@ -18,10 +18,10 @@ EXPECTED_TABLES = {
 }
 
 
-def test_packaged_migrations_load_versions_one_to_three() -> None:
+def test_packaged_migrations_load_versions_one_to_four() -> None:
     migrations = PackagedMigrations().load()
 
-    assert [m.version for m in migrations] == [1, 2, 3]
+    assert [m.version for m in migrations] == [1, 2, 3, 4]
     assert migrations[0].name == "archive"
     assert migrations[1].name == "activities"
     assert migrations[2].name == "sport_metrics"
@@ -92,7 +92,7 @@ def _seed_parent(conn: sqlite3.Connection) -> None:
     ("column", "bad", "good"),
     [
         ("swim_environment", "lake", "pool"),
-        ("length_coverage_status", "partial", "complete"),
+        ("length_coverage_status", "bogus", "complete"),
     ],
 )
 def test_swimming_check_constraints(column: str, bad: str, good: str) -> None:
