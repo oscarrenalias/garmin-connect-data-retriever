@@ -246,6 +246,26 @@ def test_adaptive_page_size_reduces_and_completes(tmp_path: Path) -> None:
     assert all(p.get("note") for p in result.cap_probes)
 
 
+def test_ordering_probe_reuses_first_page_limit_after_reduction(tmp_path: Path) -> None:
+    class FlakyOnce(Server):
+        failed = False
+
+        def __call__(self, request: httpx.Request) -> httpx.Response:
+            if int(request.url.params["start"]) > 0 and not self.failed:
+                self.failed = True
+                self.requests.append(request)
+                return httpx.Response(500)
+            return super().__call__(request)
+
+    server = FlakyOnce([act(i, f"2024-01-01 08:{i // 60:02d}:{i % 60:02d}") for i in range(150)])
+    result = run(server, tmp_path)
+    assert result.pagination["page_size_reduction_count"] == 1
+    assert result.pagination["page_size_effective"] == 49
+    assert result.ordering_probe == {"stable": True, "differing_positions": 0}
+    probe = [r for r in server.requests if "sortBy" in r.url.params][-1]
+    assert probe.url.params["limit"] == "99"
+
+
 def test_adaptive_failure_at_every_size_is_bounded(tmp_path: Path) -> None:
     server = CapServer([act(i) for i in range(1, 8)], 0)
     result = run(server, tmp_path)

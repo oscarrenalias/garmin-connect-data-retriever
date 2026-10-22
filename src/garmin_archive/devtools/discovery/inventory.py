@@ -186,6 +186,7 @@ def run_inventory(
     seen: set[str] = set()
     duplicates = 0
     first_ids: list[str] = []
+    first_limit = page_size
     start = 0
     status = "complete"
     note: str | None = None
@@ -237,6 +238,7 @@ def run_inventory(
             break
         if len(pages) == 1:
             first_ids = [_activity_id(i) for i in items]
+            first_limit = size
         for item in items:
             all_items.append(item)
             activity_id = _activity_id(item)
@@ -269,7 +271,7 @@ def run_inventory(
     if pages:
         params = {
             "start": "0",
-            "limit": str(size),
+            "limit": str(first_limit),
             "excludeChildren": "false",
             "sortBy": "startLocal",
             "sortOrder": "asc",
