@@ -6,7 +6,8 @@ import hashlib
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TypeVar, cast
 
@@ -219,12 +220,43 @@ class ArchiveWriter:
     def __init__(self, conn: sqlite3.Connection, clock: Clock) -> None:
         self._conn = conn
         self._clock = clock
+        self._batch_depth = 0
 
     def _now(self) -> str:
         return utc_rfc3339(self._clock.now())
 
+    @contextmanager
+    def batch(self) -> Generator[None]:
+        """Group writer calls into one transaction; nested batches join the outermost.
+
+        Any exception rolls back the whole batch; ``sqlite3.Error`` becomes ``StorageError``.
+        """
+        if self._batch_depth > 0:
+            self._batch_depth += 1
+            try:
+                yield
+            finally:
+                self._batch_depth -= 1
+            return
+        try:
+            with connection.transaction(self._conn):
+                self._batch_depth = 1
+                try:
+                    yield
+                finally:
+                    self._batch_depth = 0
+        except sqlite3.Error as exc:
+            if self._conn.in_transaction:
+                self._conn.execute("ROLLBACK")
+            raise StorageError(f"Archive write failed: {exc}") from exc
+
     def _run(self, work: Callable[[sqlite3.Connection], _T]) -> _T:
-        """Run ``work`` in one transaction; map ``sqlite3.Error`` to ``StorageError``."""
+        """Run ``work`` in one transaction (or the enclosing batch); map ``sqlite3.Error``."""
+        if self._batch_depth > 0:
+            try:
+                return work(self._conn)
+            except sqlite3.Error as exc:
+                raise StorageError(f"Archive write failed: {exc}") from exc
         try:
             with connection.transaction(self._conn) as conn:
                 return work(conn)
@@ -290,6 +322,45 @@ class ArchiveWriter:
             return True
 
         return self._run(work)
+
+    def update_activity_classification(
+        self, *, activity_id: str, type_key: str | None, parent_activity_id: str | None
+    ) -> None:
+        """Set ``type_key`` and ``parent_activity_id`` on an existing activity row."""
+        _validate_activity_id(activity_id)
+
+        def work(conn: sqlite3.Connection) -> None:
+            cur = conn.execute(
+                "UPDATE activity_archive SET type_key = ?, parent_activity_id = ?"
+                " WHERE activity_id = ?",
+                (type_key, parent_activity_id, activity_id),
+            )
+            if cur.rowcount != 1:
+                raise StorageError(f"Activity {activity_id} not found in archive")
+
+        self._run(work)
+
+    def mark_pending(self, *, activity_id: str, kind: str) -> None:
+        """Mark a resource ``pending`` unless it already has a state (never downgrades)."""
+        _validate_activity_id(activity_id)
+        if kind not in ACTIVITY_RESOURCE_KINDS:
+            raise ValueError(f"invalid kind: {kind!r}")
+
+        def work(conn: sqlite3.Connection) -> None:
+            if (
+                conn.execute(
+                    "SELECT 1 FROM activity_archive WHERE activity_id = ?", (activity_id,)
+                ).fetchone()
+                is None
+            ):
+                raise StorageError(f"Activity {activity_id} not found in archive")
+            conn.execute(
+                "INSERT INTO activity_resources (activity_id, kind, state, last_attempt_at_utc)"
+                " VALUES (?, ?, ?, NULL) ON CONFLICT (activity_id, kind) DO NOTHING",
+                (activity_id, kind, STATE_PENDING),
+            )
+
+        self._run(work)
 
     def mark_summary_check(self, *, activity_id: str, availability_status: str) -> None:
         """Record a summary check outcome; never deletes the row."""
@@ -616,6 +687,12 @@ def _fetch_event_from_row(row: tuple[object, ...]) -> FetchEvent:
     )
 
 
+def canonical_json_hash(value: object) -> str:
+    """SHA-256 of ``value`` as sorted-key, compact JSON; for comparison only."""
+    text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 class ArchiveReader:
     """Read-only access to archived payloads and fetch history.
 
@@ -665,6 +742,67 @@ class ArchiveReader:
             (activity_id,),
         )
         return {str(k): str(s) for k, s in rows}
+
+    def pending_resources(self) -> list[tuple[str, str]]:
+        """Return ``(activity_id, kind)`` of every ``pending`` resource, ordered by both."""
+        rows = self._query(
+            "SELECT activity_id, kind FROM activity_resources WHERE state = ?"
+            " ORDER BY activity_id, kind",
+            (STATE_PENDING,),
+        )
+        return [(str(a), str(k)) for a, k in rows]
+
+    def coverage(self) -> dict[str, dict[str, int]]:
+        """Return ``{kind: {state: count}}`` for summary, workouts and original_file.
+
+        Every kind and every known state is present, with ``0`` for absent combinations.
+        """
+        kinds = (KIND_SUMMARY, KIND_WORKOUTS, KIND_ORIGINAL_FILE)
+        result = {kind: dict.fromkeys(RESOURCE_STATES, 0) for kind in kinds}
+        rows = self._query(
+            "SELECT kind, state, COUNT(*) FROM activity_resources"
+            " WHERE kind IN (?, ?, ?) GROUP BY kind, state",
+            kinds,
+        )
+        for kind, state, count in rows:
+            result[str(kind)][str(state)] = int(str(count))
+        return result
+
+    def prior_search_item(self, activity_id: str) -> object | None:
+        """Return the parsed search item an activity's ``search_item`` resource points at.
+
+        Returns ``None`` if the activity has no search item or the pointer cannot be resolved.
+        """
+        rows = self._query(
+            "SELECT current_payload_id, json_pointer FROM activity_resources"
+            " WHERE activity_id = ? AND kind = ?",
+            (activity_id, ACTIVITY_RESOURCE_KIND_SEARCH_ITEM),
+        )
+        if not rows or rows[0][0] is None or rows[0][1] is None:
+            return None
+        pointer = str(rows[0][1])
+        if not _SEARCH_ITEM_POINTER.fullmatch(pointer):
+            return None
+        payload = self.get_payload(int(str(rows[0][0])))
+        try:
+            page = cast(object, json.loads(payload.body_blob))
+        except ValueError:
+            return None
+        index = int(pointer[1:])
+        if not isinstance(page, list):
+            return None
+        items = cast(list[object], page)
+        return items[index] if index < len(items) else None
+
+    def prior_search_item_hash(self, activity_id: str) -> str | None:
+        """Return the canonical-JSON SHA-256 of the prior search item, or ``None``.
+
+        The hash is for change detection only; nothing canonicalised is stored.
+        """
+        item = self.prior_search_item(activity_id)
+        if item is None:
+            return None
+        return canonical_json_hash(item)
 
     def fetch_events(self, resource_key: str) -> list[FetchEvent]:
         """Return fetch events for ``resource_key`` in id order."""
