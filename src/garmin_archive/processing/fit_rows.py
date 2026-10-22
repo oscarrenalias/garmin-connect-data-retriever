@@ -118,3 +118,75 @@ def lap_rows(
         }
         for index, message in enumerate(laps)
     ]
+
+
+_SEMICIRCLES_TO_DEG = 180 / 2**31
+
+
+def _degrees(value: Any) -> float | None:
+    number = _number(value)
+    return None if number is None else number * _SEMICIRCLES_TO_DEG
+
+
+def _elapsed_s(moment: Any, origin: datetime | None) -> float | None:
+    if origin is None or not isinstance(moment, datetime):
+        return None
+    current = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+    return (current - origin).total_seconds()
+
+
+def sample_rows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """One row per FIT record message at native rate; no resampling or gap filling.
+
+    ``elapsed_s`` is measured from the first record carrying a timestamp. Cadence is the
+    raw FIT value with ``cadence_unit`` ``fit_rpm`` and is only labelled when present.
+    """
+    origin: datetime | None = None
+    for message in records:
+        first = message.get("timestamp")
+        if isinstance(first, datetime):
+            origin = first.replace(tzinfo=UTC) if first.tzinfo is None else first.astimezone(UTC)
+            break
+    rows: list[dict[str, Any]] = []
+    for index, message in enumerate(records):
+        cadence = _number(message.get("cadence"))
+        rows.append(
+            {
+                "sample_index": index,
+                "timestamp_utc": to_utc_z(message.get("timestamp")),
+                "elapsed_s": _elapsed_s(message.get("timestamp"), origin),
+                "distance_m": _number(message.get("distance")),
+                "speed_mps": _first(message, "enhanced_speed", "speed"),
+                "hr_bpm": _number(message.get("heart_rate")),
+                "cadence": cadence,
+                "cadence_unit": None if cadence is None else "fit_rpm",
+                "altitude_m": _first(message, "enhanced_altitude", "altitude"),
+                "latitude_deg": _degrees(message.get("position_lat")),
+                "longitude_deg": _degrees(message.get("position_long")),
+                "power_w": _number(message.get("power")),
+                "temperature_c": _number(message.get("temperature")),
+            }
+        )
+    return rows
+
+
+def _category(value: Any) -> str | None:
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        value = value[0] if value else None
+    return _text(value)
+
+
+def set_rows(sets: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """One row per FIT set message, ``set_index`` following message order."""
+    return [
+        {
+            "set_index": index,
+            "set_type": _text(message.get("set_type")),
+            "start_at_utc": to_utc_z(message.get("start_time")),
+            "duration_s": _number(message.get("duration")),
+            "repetitions": _number(message.get("repetitions")),
+            "weight_kg": _number(message.get("weight")),
+            "category": _category(message.get("category")),
+        }
+        for index, message in enumerate(sets)
+    ]
