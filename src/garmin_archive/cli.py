@@ -23,6 +23,7 @@ from garmin_archive.output import (
     emit,
     error,
     exit_code_for,
+    exit_code_for_reprocess,
     exit_code_for_run_status,
     success,
 )
@@ -144,6 +145,31 @@ def update(
     envelope_status = "ok" if result.status == "complete" else result.status
     emit(success(result.to_dict(), status=envelope_status), sys.stdout)
     return exit_code_for_run_status(result.status)
+
+
+@app.command()
+def reprocess(
+    ctx: typer.Context,
+    activity_id: Annotated[
+        str | None,
+        typer.Option("--activity-id", help="Reprocess only this activity."),
+    ] = None,
+) -> int:
+    """Rebuild derived tables from archived payloads (no network, no credentials)."""
+    obj: dict[str, Any] = ctx.obj or {}
+    with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+        counters = client.reprocess(activity_id)
+    emit(
+        success(
+            {
+                "processed": counters.processed,
+                "partial": counters.partial,
+                "failed": counters.failed,
+            }
+        ),
+        sys.stdout,
+    )
+    return exit_code_for_reprocess(counters.failed)
 
 
 def main(argv: list[str] | None = None, *, http_client: httpx.Client | None = None) -> int:

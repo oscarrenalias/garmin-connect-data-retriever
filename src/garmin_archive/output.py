@@ -76,6 +76,11 @@ def exit_code_for_run_status(status: str) -> int:
     return _RUN_STATUS_EXIT_CODES.get(status, 1)
 
 
+def exit_code_for_reprocess(failed: int) -> int:
+    """Map a reprocess failure count to the CLI process exit code."""
+    return 7 if failed else 0
+
+
 def emit(document: dict[str, Any], stream: TextIO) -> None:
     """Write exactly one JSON document followed by a newline."""
     stream.write(json.dumps(document, ensure_ascii=False))

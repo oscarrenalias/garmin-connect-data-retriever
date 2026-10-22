@@ -13,6 +13,7 @@ from garmin_archive.models import (
     Clock,
     GarminArchiveError,
 )
+from garmin_archive.processing.batch import process_pending
 from garmin_archive.sync.discovery import (
     DiscoveryOutcome,
     PageRecorder,
@@ -53,6 +54,8 @@ class UpdateResult:
     hint: str | None = None
     incomplete_reason: str | None = None
     pending: int = 0
+    processed: int = 0
+    processing_failed: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -63,6 +66,8 @@ class UpdateResult:
             "inventory": self.inventory,
             "incomplete_reason": self.incomplete_reason,
             "pending": self.pending,
+            "processed": self.processed,
+            "processing_failed": self.processing_failed,
             "hint": self.hint,
         }
 
@@ -140,6 +145,12 @@ def run_update(
     )
     if status == STATUS_FAILED and error is not None:
         raise error
+    # Processing runs after the sync row is finalized: it can never change sync status.
+    try:
+        batch = process_pending(conn, clock)
+        processed, processing_failed = batch.processed + batch.partial, batch.failed
+    except (GarminArchiveError, sqlite3.Error):
+        processed, processing_failed = 0, 1
     return UpdateResult(
         run_id=run_id,
         status=status,
@@ -149,6 +160,8 @@ def run_update(
         hint=_hint(status, full),
         incomplete_reason=discovery.incomplete_reason,
         pending=pending,
+        processed=processed,
+        processing_failed=processing_failed,
     )
 
 
