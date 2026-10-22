@@ -67,26 +67,22 @@ uv run garmin-archive auth check                      # get a token and make one
 
 ## Discovering the Data Model
 
-Don't rely on remembered table layouts. Discover them at runtime:
+Don't rely on remembered table layouts or data semantics. Discover both at runtime:
 
-- Run `schema` to list every queryable table and view, with its description, grain (what one row represents) and columns.
-- Run `describe <name>` for one object, including its row count, and `sample <name>` to see real rows.
-- **Prefer the `v_*` views**, for example `v_activity_summary`, `v_running` and `v_swimming`. They join the common activity data with sport metrics and add derived paces. Use the base tables (laps, samples, sets, swim lengths) for drill-downs.
-- Get sport families from the data, not from a list: `SELECT DISTINCT sport_family FROM v_activity_summary`. Filter on `sport_family` or `type_key`, never on activity names.
+- `schema` lists every queryable table and view, with its description, grain (what one row represents), columns and **notes**.
+- `describe <name>` gives the same details for one object, plus its row count. `sample <name>` shows real rows.
+- **Read the `notes` of every object you query, and follow them.** They are the source of truth for meaning that column names can't carry: how swim length coverage works, how multisport is counted, run/walk sessions, raw payload versions, and so on.
+- **Prefer the `v_*` views.** They join the common activity data with sport metrics and add derived paces. Use the base tables (laps, samples, sets, swim lengths) for drill-downs.
+- Get categorical values from the data, for example `SELECT DISTINCT sport_family FROM v_activity_summary`. Never filter on activity names.
 - Column names carry their units (`_m`, `_s`, `_mps`, `_bpm`, `_spm`, `_rpm`, `_w`, `_kcal`). Times ending in `_utc` are UTC. Group days, weeks and months by `local_date`.
-- The column names in the rules below are current as of writing. If a query fails because a column is missing, check it with `describe` and adapt.
 
-## Analysis Rules (important)
+## Analysis Principles
 
-- **Never average paces or ratios.** Aggregate as `SUM(time) / SUM(distance)`, and for strokes as `SUM(distance) / SUM(stroke_count)`. Weight averages such as HR or cadence by duration: `SUM(avg_hr_bpm * timer_duration_s) / SUM(timer_duration_s)`.
-- **Multisport:** when summing volume across all activities, filter `include_in_volume_totals = 1` so parent and child activities are not double-counted. The sport views already exclude parents.
-- **NULL means not recorded,** never zero. Don't treat a NULL as 0, and say when a metric is missing (for example cycling power without a power meter). Some sports genuinely report `distance_m = 0.0` (cardio, HIIT, mobility), so exclude them from distance or pace questions.
-- **Swim lengths:** idle lengths have `distance_m IS NULL`. Filter `length_type = 'active'` for pace and stroke work. Use per-length data only where `v_swimming.length_coverage_status = 'complete'`. A value of `partial` means the user edited lengths in Garmin Connect: totals come from the edited summary, while the per-length rows reflect what the watch recorded. Compare per-length metrics **within the same pool length**, because 25 m and 50 m pools differ.
-- **Open water** has no lengths and no pool length. Use the `v_swimming` totals, `activity_laps` and `activity_samples` (GPS, temperature).
-- **Run/walk sessions:** Garmin labels them `running`. To compare steady runs, exclude sessions with a high walking share, for example the share of `activity_samples` with `cadence < 120` (running samples use `cadence_unit = 'spm'`).
-- **Fair comparisons:** to show fitness change, compare pace at a similar heart rate (for example laps with `avg_hr_bpm BETWEEN 145 AND 152`), or distance per heartbeat (`SUM(distance_m) / SUM(avg_hr_bpm * timer_duration_s / 60)`), not just raw pace.
-- **Raw payloads keep every version.** For the current raw JSON of an activity, join `activity_resources.current_payload_id = raw_payloads.id`. Don't count rows in `raw_payloads` directly.
-- Convert units for display, for example pace as min:s per km or per 100 m.
+- **Never average paces or ratios.** Aggregate as total ÷ total, for example `SUM(timer_duration_s) / SUM(distance_m)`. Weight averages such as HR or cadence by duration: `SUM(avg_hr_bpm * timer_duration_s) / SUM(timer_duration_s)`.
+- **NULL means not recorded**, never zero. Don't coerce it to 0, and tell the user when a metric is missing.
+- **Compare like with like.** Use the same sport, pool length and stroke, and the same kind of session. To show fitness change, compare pace at a similar heart rate, or distance per heartbeat, not raw pace alone.
+- Prefer aggregating in SQL over pulling many rows.
+- Convert units for display, for example pace as m:ss per km or per 100 m.
 
 ## Example Queries
 
