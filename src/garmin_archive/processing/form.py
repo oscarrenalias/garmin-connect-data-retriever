@@ -7,15 +7,19 @@ serial number is never read. Matching columns (``matched_activity_id``, ``match_
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from garmin_fit_sdk import Decoder, Stream
 
 from garmin_archive.processing.fit_rows import number, session_index, text, to_utc_z, window
 from garmin_archive.processing.fitfile import FitUnavailableError
+from garmin_archive.processing.form_match import FormSwim, GarminSwim, match_form_sessions
 from garmin_archive.processing.swim import swim_length_rows
+from garmin_archive.storage.connection import transaction
 
 _YARD_M = 0.9144
 _ENVIRONMENTS = {"lap_swimming": "pool", "open_water": "open_water"}
@@ -117,3 +121,107 @@ def parse_form_fit(
 
 def _int(value: float | int | None) -> int | None:
     return None if value is None else int(value)
+
+
+@dataclass(frozen=True)
+class FormRebuildResult:
+    """Counts for one ``rebuild_form`` run; ``skipped`` counts undecodable payloads."""
+
+    matched: int
+    unmatched: int
+    skipped: int = 0
+
+
+def _parse_utc(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    except ValueError:
+        return None
+
+
+def _garmin_swims(conn: sqlite3.Connection) -> list[GarminSwim]:
+    rows = conn.execute(
+        "SELECT a.activity_id, a.start_at_utc, a.elapsed_duration_s, a.timer_duration_s,"
+        " s.swim_environment, s.pool_length_m FROM activities a"
+        " JOIN swimming_metrics s ON s.activity_id = a.activity_id"
+        " WHERE s.swim_environment IS NOT NULL ORDER BY a.activity_id"
+    ).fetchall()
+    swims: list[GarminSwim] = []
+    for activity_id, start_text, elapsed, timer, environment, pool in rows:
+        start = _parse_utc(start_text)
+        duration = elapsed if elapsed is not None else timer
+        if start is None or duration is None:
+            continue
+        swims.append(
+            GarminSwim(
+                str(activity_id), start, start + timedelta(seconds=duration), environment, pool
+            )
+        )
+    return swims
+
+
+def rebuild_form(conn: sqlite3.Connection) -> FormRebuildResult:
+    """Rebuild ``form_sessions`` and ``form_lengths`` wholesale from imported FORM payloads.
+
+    One transaction: delete every row, re-parse each ``imported_file:form:%`` payload, match
+    the sessions to the current Garmin swims and insert. Writes no ``processing_runs`` rows;
+    local only (no network, no credentials). Undecodable payloads are skipped and counted.
+    """
+    payloads = conn.execute(
+        "SELECT id, sha256, body_blob FROM raw_payloads"
+        " WHERE resource_key LIKE 'imported_file:form:%' ORDER BY id"
+    ).fetchall()
+    with transaction(conn):
+        conn.execute("DELETE FROM form_lengths")
+        conn.execute("DELETE FROM form_sessions")
+        garmin = _garmin_swims(conn)
+        sessions: dict[str, dict[str, Any]] = {}
+        lengths: list[dict[str, Any]] = []
+        skipped = 0
+        for payload_id, sha256, blob in payloads:
+            try:
+                session_rows, length_rows = parse_form_fit(bytes(blob), int(payload_id), sha256)
+            except FitUnavailableError:
+                skipped += 1
+                continue
+            for row in session_rows:
+                if row["form_session_id"] in sessions:
+                    continue
+                sessions[row["form_session_id"]] = row
+            lengths.extend(row for row in length_rows if row["form_session_id"] in sessions)
+        candidates: list[FormSwim] = []
+        for row in sessions.values():
+            start = _parse_utc(row["start_at_utc"])
+            if start is None or row["environment"] is None:
+                continue
+            seconds = row["elapsed_duration_s"]
+            if seconds is None:
+                seconds = row["timer_duration_s"]
+            end = start + timedelta(seconds=seconds or 0)
+            candidates.append(
+                FormSwim(
+                    row["form_session_id"], start, end, row["environment"], row["pool_length_m"]
+                )
+            )
+        matches = {m.form_session_id: m for m in match_form_sessions(candidates, garmin)}
+        matched = 0
+        for session_id, row in sessions.items():
+            match = matches.get(session_id)
+            row["matched_activity_id"] = match.matched_activity_id if match else None
+            row["match_delta_s"] = match.match_delta_s if match else None
+            row["pool_length_mismatch"] = (
+                match.pool_length_mismatch if match and match.matched_activity_id else None
+            )
+            matched += row["matched_activity_id"] is not None
+            _insert(conn, "form_sessions", row)
+        for row in lengths:
+            _insert(conn, "form_lengths", row)
+    return FormRebuildResult(matched=matched, unmatched=len(sessions) - matched, skipped=skipped)
+
+
+def _insert(conn: sqlite3.Connection, table: str, row: Mapping[str, Any]) -> None:
+    columns = ", ".join(row)
+    marks = ", ".join("?" for _ in row)
+    conn.execute(f"INSERT INTO {table} ({columns}) VALUES ({marks})", tuple(row.values()))  # noqa: S608
