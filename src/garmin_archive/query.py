@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from dataclasses import dataclass
 
 from garmin_archive.models import InvalidQueryError
+from garmin_archive.storage.migrations import current_schema_version
 
 
 @dataclass(frozen=True)
@@ -137,3 +139,57 @@ def lookup(conn: sqlite3.Connection, name: str) -> QueryableObject:
             if obj.name == name:
                 return obj
     raise InvalidQueryError(f"Unknown table or view: {name!r}")
+
+
+_ALLOWED_READ_TABLES = frozenset(_BY_NAME) | {"json_each", "json_tree"}
+_DENIED_FUNCTIONS = frozenset({"load_extension"})
+
+
+def authorizer(
+    action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None
+) -> int:
+    """SQLite authorizer: permit only SELECT over registry objects and JSON helpers.
+
+    Column, database and trigger/view/CTE-source arguments are ignored on purpose:
+    the table name alone decides, so a CTE named like a registry view cannot
+    smuggle in reads of other tables (the underlying READ is still checked).
+    """
+    if action == sqlite3.SQLITE_SELECT or action == sqlite3.SQLITE_RECURSIVE:
+        return sqlite3.SQLITE_OK
+    if action == sqlite3.SQLITE_READ:
+        if arg1 in _ALLOWED_READ_TABLES:
+            return sqlite3.SQLITE_OK
+        # count(*) style reads carry no table, column or database.
+        if not arg1 and not arg2 and db_name is None:
+            return sqlite3.SQLITE_OK
+        return sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_FUNCTION:
+        if (arg2 or "").lower() in _DENIED_FUNCTIONS:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
+def harden_connection(conn: sqlite3.Connection) -> int:
+    """Lock down a read connection for untrusted SQL; return the schema version.
+
+    The schema version is read first, before the authorizer is installed.
+    No custom SQL functions are registered.
+    """
+    version = current_schema_version(conn)
+    enable = getattr(conn, "enable_load_extension", None)
+    if enable is not None:
+        with contextlib.suppress(sqlite3.Error, AttributeError, NotImplementedError):
+            enable(False)
+    conn.set_authorizer(authorizer)
+    return version
+
+
+def execute_guarded(
+    conn: sqlite3.Connection, sql: str, params: tuple[object, ...] | dict[str, object] = ()
+) -> sqlite3.Cursor:
+    """Execute ``sql`` on a hardened connection, mapping SQLite errors to InvalidQueryError."""
+    try:
+        return conn.execute(sql, params)
+    except (sqlite3.DatabaseError, sqlite3.Warning, sqlite3.ProgrammingError) as exc:
+        raise InvalidQueryError(str(exc)) from exc
