@@ -66,7 +66,12 @@ garmin-archive [--db PATH] update [--full] [--from YYYY-MM-DD --to YYYY-MM-DD]
   - 3: `AUTH_FAILED`, `CREDENTIALS_NOT_FOUND`, `INSECURE_KEY_FILE`, `FORBIDDEN`, `ACCOUNT_MISMATCH`
   - 4: `TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_MISMATCH`
 
-  Add a helper `exit_code_for_code(code: str) -> int` in `output.py` that uses the same mapping as `exit_code_for`.
+  Add a helper `exit_code_for_code(code: str) -> int` in `output.py` with this explicit table:
+  - 2: `INVALID_ARGUMENT`
+  - 3: `AUTH_FAILED`, `CREDENTIALS_NOT_FOUND`, `INSECURE_KEY_FILE`, `FORBIDDEN`, `ACCOUNT_MISMATCH`
+  - 4: `TRANSPORT_ERROR`, `RATE_LIMITED`, `CONTRACT_MISMATCH`
+  - 5: `STORAGE_ERROR`, `DATABASE_NOT_FOUND`, `NOT_INITIALIZED`, `SCHEMA_TOO_NEW`, `MIGRATION_CHECKSUM_MISMATCH`, `ARCHIVE_LOCKED`
+  - any other code: 1
 - Exceptions raised by `update` go through the existing `main()` handling:
 
   | Exception | Exit |
@@ -119,6 +124,7 @@ Tests call `main([...], client_factory=...)`, which builds a client on the fake 
    - `update --from 2026-07-01 --to 2026-06-01`
    - `update --from notadate --to 2026-06-01`
    - `update --resume 999`
+   - `update --resume <id of a complete run>`
 4. Preconditions:
    - A missing DB gives exit 5 and `DATABASE_NOT_FOUND`, the message mentions `garmin-archive init`, and no file is created.
    - A held writer lock gives exit 5 and `ARCHIVE_LOCKED`.

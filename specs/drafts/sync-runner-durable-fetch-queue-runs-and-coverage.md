@@ -28,7 +28,7 @@ Complete library-level synchronization (`docs/SPEC.md` §6) in `ArchiveClient.up
 
 The CLI command lives in the follow-up spec "update CLI command". Analytical processing does not exist yet, so every run is effectively archive-only.
 
-Depends on merged code: storage foundation, raw archive writer, credentials, HTTP adapter, and sync discovery (`run_discovery` with its `on_page` hook, `ClassifiedItem`, `DiscoveryScope`, `tests/sync/fake_garmin.py`).
+Depends on (merged before planning): storage foundation, raw archive writer, credentials, HTTP adapter, and sync discovery (`run_discovery` with its `on_page` hook, `ClassifiedItem`, `DiscoveryScope`, `tests/sync/fake_garmin.py`).
 
 ## Problems to Fix
 
@@ -241,6 +241,23 @@ Additional rules:
 - HTTP concurrency is 1.
 - No SQLite transaction is open during any adapter call.
 - Library code never prints.
+
+### 8. Clarifications (normative; override anything above)
+
+1. **Resume skips completed discovery.** When resuming, skip discovery if any run in the resume chain (the root or a later resume) finalized with a `DiscoveryResult.inventory_status == "complete"`, as recorded in its `coverage_json.inventory_status` being `complete` or `provisional`. In that case only process pending resources. Otherwise run discovery as described in §3 Resume step 3.
+2. **Token pre-flight.** Right after inserting the run row, the runner calls `tokens.get_token()` once. Any error raised there follows the "token acquisition" rows of §5 (`failed`). After that, a `TransportError` during fetch is always per-resource (record and continue). A `TransportError` raised by discovery follows the discovery rows of §5.
+3. **Two-step validation.**
+   - `validate_options(options)` does pure checks on the options and runs first, raising `InvalidArgumentError`.
+   - Then `check_schema` runs, raising `DatabaseNotFoundError` or `NotInitializedError`, and the lock is acquired.
+   - Then `validate_resume(options, conn)` checks that the referenced run exists and is not `complete`, before the run row is inserted.
+   - A missing DB with `resume_run_id=999` therefore raises `DatabaseNotFoundError`.
+4. **Discovery that raises.** `SyncResult.discovery` is `None`. `coverage.inventory_status` is `"incomplete"` for a `partial` run and `"failed"` for a `failed` run. The runner counts committed pages and discovered activities through its `on_page` invocations, and reports them in `counters.activities_discovered/new/changed/unchanged`.
+5. **Counter semantics.** `resources_queued` counts transitions into `pending`, from another state or from no row. Re-marking an already-pending kind does not count. `resume.run_id` is **this** run's ID.
+6. **Dependencies** (credentials, the HTTP adapter and sync discovery) are other specs in this series. They will be merged before this spec is planned.
+
+AC additions:
+- **AC 21:** a `full` root whose fetch phase hit a rate limit, with recent-window activities present. `resume` makes no search requests and reports `resources_queued == 0`.
+- **AC 22:** a token endpoint 503 (4 attempts) gives `failed/TRANSPORT_ERROR` before any search request. A summary 503 after a successful pre-flight is recorded per resource.
 
 ## Files to Modify
 
