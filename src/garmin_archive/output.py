@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any, TextIO
 
-from garmin_archive.models import AccountMismatchError, GarminArchiveError, StorageError
+from garmin_archive.models import (
+    AccountMismatchError,
+    ApiAuthError,
+    ApiTransportError,
+    GarminArchiveError,
+    StorageError,
+)
 
 UsageError: type[Exception]
 try:
@@ -49,8 +55,10 @@ def error(
 
 def exit_code_for(exc: BaseException) -> int:
     """Map an exception to the CLI process exit code."""
-    if isinstance(exc, AccountMismatchError):
+    if isinstance(exc, AccountMismatchError | ApiAuthError):
         return 3
+    if isinstance(exc, ApiTransportError):
+        return 4
     if isinstance(exc, StorageError):
         return 5
     if isinstance(exc, GarminArchiveError):
