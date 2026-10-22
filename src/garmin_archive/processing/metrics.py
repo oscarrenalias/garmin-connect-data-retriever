@@ -62,6 +62,13 @@ _YARD_M = 0.9144
 _SWIM_ENVIRONMENTS = {"lap_swimming": "pool", "open_water_swimming": "open_water"}
 
 
+class _Unset:
+    """Sentinel type: argument not supplied."""
+
+
+_UNSET = _Unset()
+
+
 def swim_pool_length_m(summary: Mapping[str, Any], warnings: list[str]) -> float | None:
     """Pool length in metres from ``poolLength`` and ``unitOfPoolLength.unitKey``.
 
@@ -101,8 +108,12 @@ def swimming_metrics_row(
     summary: Mapping[str, Any],
     lengths: Sequence[Mapping[str, Any]],
     warnings: list[str],
+    pool_length_m: float | None | _Unset = _UNSET,
 ) -> dict[str, Any]:
     """Return ``swimming_metrics`` metric columns.
+
+    Pass ``pool_length_m`` when the caller already derived it (and recorded any warning), so
+    the pool-length warning is not appended twice. When omitted it is derived here.
 
     Summary metrics are copied as reported. ``lengths`` are ``swim_lengths`` rows. Active and
     rest durations come from length records only, never from elapsed-minus-timer.
@@ -112,9 +123,11 @@ def swimming_metrics_row(
     has_lengths = bool(lengths)
     strokes = _number(dto, "totalNumberOfStrokes")
     active_lengths = _number(dto, "numberOfActiveLengths")
+    if isinstance(pool_length_m, _Unset):
+        pool_length_m = swim_pool_length_m(summary, warnings) if environment == "pool" else None
     return {
         "swim_environment": environment,
-        "pool_length_m": swim_pool_length_m(summary, warnings) if environment == "pool" else None,
+        "pool_length_m": pool_length_m,
         "active_lengths": None if active_lengths is None else int(active_lengths),
         "total_strokes": None if strokes is None else int(strokes),
         "avg_swolf": _number(dto, "averageSWOLF"),

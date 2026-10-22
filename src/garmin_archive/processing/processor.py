@@ -160,7 +160,7 @@ def _sport_rows(
         lengths = (
             swim_length_rows(fit.lengths, fit.laps, pool_length) if pool and fit is not None else []
         )
-        row = swimming_metrics_row(str(type_key), summary, lengths, warnings)
+        row = swimming_metrics_row(str(type_key), summary, lengths, warnings, pool_length)
         return _SportRows("swimming_metrics", row, lengths)
     return _NO_SPORT_ROWS
 

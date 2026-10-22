@@ -267,7 +267,9 @@ def test_unknown_pool_unit_gives_partial_and_null_pool_length(
     )
     result = process_activity(conn, AID, clock)
     assert result.status == "partial"
-    assert any(w.startswith("unknown_pool_length_unit") for w in result.warnings)
+    assert [w for w in result.warnings if w.startswith("unknown_pool_length_unit")] == [
+        "unknown_pool_length_unit: 'furlong'"
+    ]
     assert _row(conn, "swimming_metrics")["pool_length_m"] is None
 
 
