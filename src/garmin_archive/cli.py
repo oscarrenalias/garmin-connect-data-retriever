@@ -1,5 +1,6 @@
 """Command-line interface. Parses arguments and delegates to the library."""
 
+import json
 import os
 import signal
 import sys
@@ -17,7 +18,7 @@ from garmin_archive.api import GarminApiClient, check_auth
 from garmin_archive.client import ArchiveClient
 from garmin_archive.config import ArchiveConfig
 from garmin_archive.credentials import DEFAULT_ENV_FILE, find_api_key, require_api_key
-from garmin_archive.models import GarminArchiveError
+from garmin_archive.models import GarminArchiveError, InvalidQueryError
 from garmin_archive.output import (
     UsageError,
     emit,
@@ -27,6 +28,7 @@ from garmin_archive.output import (
     exit_code_for_run_status,
     success,
 )
+from garmin_archive.query import DEFAULT_LIMIT, DEFAULT_TIMEOUT_S
 
 app = typer.Typer(help="Archive Garmin Connect activities into a local SQLite database.")
 auth_app = typer.Typer(help="Inspect Garmin API key configuration.")
@@ -170,6 +172,65 @@ def reprocess(
         sys.stdout,
     )
     return exit_code_for_reprocess(counters.failed)
+
+
+@app.command()
+def schema(ctx: typer.Context) -> None:
+    """List the queryable tables and views (no network, no credentials)."""
+    obj: dict[str, Any] = ctx.obj or {}
+    with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+        result = client.schema()
+    emit(success(result), sys.stdout)
+
+
+@app.command()
+def describe(
+    ctx: typer.Context, name: Annotated[str, typer.Argument(help="Table or view.")]
+) -> None:
+    """Describe one queryable table or view."""
+    obj: dict[str, Any] = ctx.obj or {}
+    with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+        result = client.describe(name)
+    emit(success(result), sys.stdout)
+
+
+@app.command()
+def sample(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Table or view.")],
+    limit: Annotated[int, typer.Option("--limit", help="Number of rows to return.")] = 5,
+) -> None:
+    """Return the first rows of a queryable table or view."""
+    obj: dict[str, Any] = ctx.obj or {}
+    with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+        result = client.sample(name, limit)
+    emit(success(result), sys.stdout)
+
+
+@app.command()
+def sql(
+    ctx: typer.Context,
+    query: Annotated[str, typer.Option("--query", help="One read-only SQL statement.")],
+    params: Annotated[
+        str | None,
+        typer.Option("--params", help="JSON object of named bound parameters."),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", help="Maximum rows returned.")] = DEFAULT_LIMIT,
+    timeout: Annotated[
+        float, typer.Option("--timeout", help="Query timeout in seconds.")
+    ] = DEFAULT_TIMEOUT_S,
+) -> None:
+    """Run one read-only SQL statement against the archive."""
+    obj: dict[str, Any] = ctx.obj or {}
+    parameters: Any = None
+    if params is not None:
+        try:
+            parameters = json.loads(params)
+        except ValueError as exc:
+            raise InvalidQueryError("--params is not valid JSON") from exc
+    with ArchiveClient(ArchiveConfig(db_path=obj.get("db"))) as client:
+        result = client.query(query, parameters, limit=limit, timeout_s=timeout)
+    emit(success(result), sys.stdout)
 
 
 def main(argv: list[str] | None = None, *, http_client: httpx.Client | None = None) -> int:
