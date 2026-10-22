@@ -166,6 +166,7 @@ def make_authorizer(
     nothing or a CTE (recursive CTEs report their own name), so they are allowed
     unless the name is a real, non-queryable table in ``blocked_tables``.
     """
+    blocked_lower = frozenset(name.lower() for name in blocked_tables)
 
     def authorizer(
         action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None
@@ -175,7 +176,7 @@ def make_authorizer(
         if action == sqlite3.SQLITE_READ:
             if arg1 in _ALLOWED_READ_TABLES:
                 return sqlite3.SQLITE_OK
-            if not arg2 and db_name is None and arg1 not in blocked_tables:
+            if not arg2 and db_name is None and (arg1 or "").lower() not in blocked_lower:
                 return sqlite3.SQLITE_OK
             return sqlite3.SQLITE_DENY
         if action == sqlite3.SQLITE_FUNCTION:

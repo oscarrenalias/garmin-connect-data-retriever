@@ -161,6 +161,8 @@ REJECTED = [
     "SELECT * FROM sqlite_master",
     "SELECT count(*) FROM sqlite_master",
     "SELECT count(*) FROM sqlite_temp_master",
+    "SELECT count(*) FROM SQLITE_MASTER",
+    "SELECT count(*) FROM Schema_Migrations",
     "SELECT * FROM schema_migrations",
     "BEGIN",
     "WITH v_activity_summary AS (SELECT * FROM schema_migrations) SELECT * FROM v_activity_summary",
