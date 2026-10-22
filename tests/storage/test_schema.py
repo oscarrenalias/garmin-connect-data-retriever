@@ -20,6 +20,11 @@ EXPECTED_TABLES = {
     "sync_checkpoints",
     "processing_runs",
     "schema_migrations",
+    "activities",
+    "activity_sessions",
+    "activity_laps",
+    "activity_samples",
+    "activity_sets",
 }
 EXPECTED_INDEXES = {
     "idx_raw_payloads_activity_kind",
@@ -29,6 +34,10 @@ EXPECTED_INDEXES = {
     "idx_activity_archive_type_key",
     "idx_activity_resources_state",
     "idx_processing_runs_activity_started",
+    "idx_activities_local_date_family",
+    "idx_activities_parent",
+    "idx_activities_processing_status",
+    "idx_activity_samples_timestamp",
 }
 
 
