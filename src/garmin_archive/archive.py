@@ -7,6 +7,7 @@ import json
 import re
 import sqlite3
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from typing import TypeVar
 
 from garmin_archive.models import Clock, StorageError, utc_rfc3339
@@ -187,6 +188,21 @@ def _validate_availability(status: str) -> None:
         raise ValueError(f"invalid availability_status: {status!r}")
 
 
+def _validate_resource_state(state: str) -> None:
+    if state not in RESOURCE_STATES:
+        raise ValueError(f"invalid resource_state: {state!r}")
+
+
+@dataclass(frozen=True)
+class RecordResult:
+    """Outcome of ``ArchiveWriter.record_response``."""
+
+    payload_id: int
+    fetch_event_id: int
+    is_new_payload: bool
+    sha256: str
+
+
 class ArchiveWriter:
     """Write operations on the archive tables.
 
@@ -282,3 +298,101 @@ class ArchiveWriter:
                 raise StorageError(f"Activity {activity_id} not found in archive")
 
         self._run(work)
+
+    def record_response(
+        self,
+        *,
+        resource_key: str,
+        kind: str,
+        activity_id: str | None,
+        sync_run_id: int | None,
+        method: str,
+        path: str,
+        request_params: Mapping[str, str | int | bool] | None,
+        http_status: int | None,
+        content_type: str | None,
+        body: bytes,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        resource_state: str = STATE_AVAILABLE,
+        json_pointer: str | None = None,
+    ) -> RecordResult:
+        """Store a response body (deduplicated) and its fetch event atomically."""
+        if kind == KIND_IMPORTED_FILE:
+            raise ValueError("imported_file payloads cannot be recorded")
+        _validate_resource_state(resource_state)
+        validate_resource_key(resource_key, kind, activity_id)
+        params_json = serialize_request_params(request_params)
+        sha256, byte_count = _sha256_and_size(body)
+        body_text, encoding = _derive_body_text(content_type, body)
+        now = self._now()
+
+        def work(conn: sqlite3.Connection) -> RecordResult:
+            if kind != KIND_SEARCH_PAGE:
+                row = conn.execute(
+                    "SELECT 1 FROM activity_archive WHERE activity_id = ?", (activity_id,)
+                ).fetchone()
+                if row is None:
+                    raise StorageError(f"Activity {activity_id} not found in archive")
+            existing = conn.execute(
+                "SELECT id FROM raw_payloads WHERE resource_key = ? AND sha256 = ?",
+                (resource_key, sha256),
+            ).fetchone()
+            if existing is not None:
+                payload_id = int(existing[0])
+                is_new = False
+            else:
+                inserted = conn.execute(
+                    "INSERT INTO raw_payloads (resource_key, activity_id, kind, content_type,"
+                    " encoding, body_text, body_blob, sha256, byte_count, first_seen_at_utc)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        resource_key,
+                        activity_id if kind != KIND_SEARCH_PAGE else None,
+                        kind,
+                        content_type,
+                        encoding,
+                        body_text,
+                        body,
+                        sha256,
+                        byte_count,
+                        now,
+                    ),
+                ).lastrowid
+                assert inserted is not None
+                payload_id = inserted
+                is_new = True
+            fetch_event_id = conn.execute(
+                "INSERT INTO fetch_events (sync_run_id, resource_key, method, path,"
+                " request_params_json, fetched_at_utc, http_status, payload_id, etag,"
+                " last_modified, error_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+                (
+                    sync_run_id,
+                    resource_key,
+                    method,
+                    path,
+                    params_json,
+                    now,
+                    http_status,
+                    payload_id,
+                    etag,
+                    last_modified,
+                ),
+            ).lastrowid
+            assert fetch_event_id is not None
+            if kind != KIND_SEARCH_PAGE:
+                conn.execute(
+                    "INSERT INTO activity_resources (activity_id, kind, current_payload_id,"
+                    " json_pointer, state, last_attempt_at_utc, last_success_at_utc,"
+                    " next_retry_at_utc, error_code) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)"
+                    " ON CONFLICT (activity_id, kind) DO UPDATE SET"
+                    " current_payload_id = excluded.current_payload_id,"
+                    " json_pointer = excluded.json_pointer, state = excluded.state,"
+                    " last_attempt_at_utc = excluded.last_attempt_at_utc,"
+                    " last_success_at_utc = excluded.last_success_at_utc,"
+                    " next_retry_at_utc = NULL, error_code = NULL",
+                    (activity_id, kind, payload_id, json_pointer, resource_state, now, now),
+                )
+            return RecordResult(payload_id, fetch_event_id, is_new, sha256)
+
+        return self._run(work)
