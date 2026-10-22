@@ -138,6 +138,13 @@ DiscoveryResult(
 2. **A known activity with no `search_item` resource**, for example one first archived by a single-activity fetch, is classified `changed`.
 3. **Repeated and no-progress pages** are committed like any other page (payload, fetch event, items, checkpoint). Discovery then stops. `start` always advances by the number of items returned, and a short page never ends pagination. `server_error_pages` counts page-size reductions.
 4. **Locking.** The caller (`update`, next spec) holds `writer_lock`. `run_discovery` never acquires it.
+5. **Per-page hook (durable queue).**
+   - `run_discovery` accepts `on_page: Callable[[sqlite3.Connection, Sequence[ClassifiedItem]], None] | None = None`.
+   - `ClassifiedItem` is a frozen dataclass with `item: SearchItem` and `classification: Literal["new", "changed", "unchanged"]`. Duplicates skipped in this run are excluded.
+   - The hook is invoked **inside the same page transaction**, after the items and the checkpoint have been written and before the commit. It must not perform network I/O or start or commit transactions.
+   - If the hook raises, the whole page rolls back and the exception propagates.
+   - The next spec uses this hook to mark resources pending atomically with the page.
+   - AC addition (AC 17): a hook that raises on page 2 leaves page 1 committed and nothing from page 2. A hook that inserts a row sees the page's `activity_archive` rows inside the same transaction.
 
 AC additions:
 - AC 3 also asserts exactly two failure `fetch_events` with `http_status = 500` and `payload_id IS NULL`.
