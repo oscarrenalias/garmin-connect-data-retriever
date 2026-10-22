@@ -205,3 +205,18 @@ def test_markdown_explains_page_size_reduction() -> None:
         }
     )
     assert "Server returned 5xx for pages of 99; effective page size 24." in text
+
+
+def test_markdown_reports_server_error_pages() -> None:
+    from garmin_archive.devtools.discovery.report import render_markdown
+
+    text = render_markdown(
+        {
+            "pagination": {
+                "page_size_effective": 24,
+                "server_error_pages": 2,
+                "page_size_reductions": [{"from": 99, "to": 49, "start": 0}],
+            }
+        }
+    )
+    assert "Search page requests that returned 5xx: 2." in text

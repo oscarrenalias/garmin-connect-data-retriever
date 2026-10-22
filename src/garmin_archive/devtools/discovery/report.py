@@ -231,9 +231,15 @@ def _reduction_lines(pagination: Mapping[str, Any] | None) -> list[str]:
         return []
     first = cast("Mapping[str, Any]", cast("list[object]", reductions)[0])
     effective = (pagination or {}).get("page_size_effective")
+    error_pages = (pagination or {}).get("server_error_pages")
     return [
         f"Server returned 5xx for pages of {_cell(first.get('from'))}; "
         f"effective page size {_cell(effective)}.",
+        *(
+            [f"Search page requests that returned 5xx: {_cell(error_pages)}."]
+            if error_pages
+            else []
+        ),
         "",
     ]
 

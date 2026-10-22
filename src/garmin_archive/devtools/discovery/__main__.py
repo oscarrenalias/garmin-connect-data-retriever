@@ -31,7 +31,11 @@ from garmin_archive.devtools.discovery.credentials import (
     load_api_key,
 )
 from garmin_archive.devtools.discovery.fixtures import DEFAULT_FIXTURES_DIR
-from garmin_archive.devtools.discovery.inventory import DEFAULT_MAX_PAGES, DEFAULT_PAGE_SIZE
+from garmin_archive.devtools.discovery.inventory import (
+    DEFAULT_MAX_PAGES,
+    DEFAULT_PAGE_SIZE,
+    MIN_PAGE_SIZE,
+)
 from garmin_archive.devtools.discovery.selection import DEFAULT_CARDIO_TYPES, DEFAULT_PER_CATEGORY
 
 EXIT_OK = 0
@@ -75,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
     cap.add_argument("--env-file", type=Path, default=None, help="dotenv file with the API key")
     cap.add_argument("--token-field", default=None, help="token response field holding the token")
     cap.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE)
+    cap.add_argument(
+        "--min-page-size",
+        type=int,
+        default=MIN_PAGE_SIZE,
+        help="smallest page size adaptive reduction may fall back to",
+    )
     cap.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES)
     cap.add_argument(
         "--activity-id",
@@ -128,6 +138,7 @@ def main(argv: Sequence[str] | None = None, deps: MainDeps | None = None) -> int
         delay=args.delay,
         max_pages=args.max_pages,
         page_size=args.page_size,
+        min_page_size=args.min_page_size,
     )
     capture_deps = CaptureDeps(
         api_key=api_key,
