@@ -28,6 +28,14 @@ from garmin_archive.processing.fitfile import (
     extract_fit,
 )
 from garmin_archive.processing.inputs import ProcessingInputs, load_inputs, processor_version
+from garmin_archive.processing.metrics import (
+    cardio_metrics_row,
+    cycling_metrics_row,
+    running_metrics_row,
+    swim_pool_length_m,
+    swimming_metrics_row,
+)
+from garmin_archive.processing.swim import swim_length_rows
 from garmin_archive.storage.connection import transaction
 
 STATUS_PROCESSED = "processed"
@@ -38,6 +46,11 @@ ERROR_PROCESSING = "PROCESSING_ERROR"
 
 # Child tables first so foreign keys hold while deleting.
 _DERIVED_TABLES = (
+    "swim_lengths",
+    "running_metrics",
+    "swimming_metrics",
+    "cycling_metrics",
+    "cardio_metrics",
     "activity_sets",
     "activity_samples",
     "activity_laps",
@@ -74,7 +87,7 @@ def _json_object(payload: RawPayload | None, label: str, warnings: list[str]) ->
 
 def _activity_row(
     inputs: ProcessingInputs, warnings: list[str]
-) -> tuple[dict[str, Any], int | None]:
+) -> tuple[dict[str, Any], int | None, dict[str, Any]]:
     summary = _json_object(inputs.summary, "summary", warnings)
     item = inputs.search_item
     search_item = cast("Mapping[str, Any]", item) if isinstance(item, dict) else None
@@ -85,7 +98,7 @@ def _activity_row(
     source = inputs.summary_payload_id
     if source is None:
         source = inputs.search_item_payload_id
-    return row, source
+    return row, source, summary
 
 
 def _fit_messages(file: RawPayload | None, warnings: list[str]) -> FitMessages | None:
@@ -114,14 +127,54 @@ def _insert(
     conn.executemany(sql, [{**common, **row} for row in rows])
 
 
+@dataclass(frozen=True)
+class _SportRows:
+    """Sport-specific derived rows: at most one metrics row plus swim lengths."""
+
+    metrics_table: str | None
+    metrics_row: dict[str, Any] | None
+    lengths: list[dict[str, Any]]
+
+
+_NO_SPORT_ROWS = _SportRows(None, None, [])
+
+
+def _sport_rows(
+    activity: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    fit: FitMessages | None,
+    warnings: list[str],
+) -> _SportRows:
+    family = activity.get("sport_family")
+    if family == "running":
+        return _SportRows("running_metrics", running_metrics_row(summary), [])
+    if family == "cycling":
+        return _SportRows("cycling_metrics", cycling_metrics_row(summary), [])
+    if family == "cardio":
+        sets = set_rows(fit.sets) if fit is not None else []
+        return _SportRows("cardio_metrics", cardio_metrics_row(summary, sets), [])
+    if family == "swimming":
+        type_key = activity.get("type_key")
+        pool = type_key == "lap_swimming"
+        pool_length = swim_pool_length_m(summary, warnings) if pool else None
+        lengths = (
+            swim_length_rows(fit.lengths, fit.laps, pool_length) if pool and fit is not None else []
+        )
+        row = swimming_metrics_row(str(type_key), summary, lengths, warnings)
+        return _SportRows("swimming_metrics", row, lengths)
+    return _NO_SPORT_ROWS
+
+
 def _replace_rows(
     conn: sqlite3.Connection,
     activity_id: str,
     run_id: int,
     activity: dict[str, Any],
     activity_source: int | None,
+    summary_source: int | None,
     fit: FitMessages | None,
     file_source: int | None,
+    sport: _SportRows,
     status: str,
     now: str,
 ) -> None:
@@ -135,6 +188,13 @@ def _replace_rows(
         "processed_at_utc": now,
     }
     _insert(conn, "activities", [row], {})
+    if sport.metrics_table is not None and sport.metrics_row is not None:
+        metrics_common = {
+            "activity_id": activity_id,
+            "processing_run_id": run_id,
+            "source_payload_id": summary_source,
+        }
+        _insert(conn, sport.metrics_table, [sport.metrics_row], metrics_common)
     if fit is None:
         return
     common = {
@@ -145,8 +205,14 @@ def _replace_rows(
     sessions = session_rows(fit.sessions)
     _insert(conn, "activity_sessions", sessions, common)
     _insert(conn, "activity_laps", lap_rows(fit.laps, fit.sessions) if sessions else [], common)
-    _insert(conn, "activity_samples", sample_rows(fit.records), common)
+    _insert(
+        conn,
+        "activity_samples",
+        sample_rows(fit.records, running=activity.get("sport_family") == "running"),
+        common,
+    )
     _insert(conn, "activity_sets", set_rows(fit.sets), common)
+    _insert(conn, "swim_lengths", sport.lengths, common)
 
 
 def _warnings_json(warnings: Sequence[str]) -> str | None:
@@ -185,10 +251,11 @@ def process_activity(conn: sqlite3.Connection, activity_id: str, clock: Clock) -
 
     warnings: list[str] = []
     try:
-        activity, activity_source = _activity_row(inputs, warnings)
+        activity, activity_source, summary = _activity_row(inputs, warnings)
         fit = _fit_messages(inputs.original_file, warnings)
         if fit is not None and fit.laps and not fit.sessions:
             warnings.append("laps_without_session")
+        sport = _sport_rows(activity, summary, fit, warnings)
         status = STATUS_PARTIAL if warnings else STATUS_PROCESSED
         finished = utc_rfc3339(clock.now())
         with transaction(conn):
@@ -198,8 +265,10 @@ def process_activity(conn: sqlite3.Connection, activity_id: str, clock: Clock) -
                 run_id,
                 activity,
                 activity_source,
+                inputs.summary_payload_id,
                 fit,
                 inputs.file_payload_id,
+                sport,
                 status,
                 finished,
             )
