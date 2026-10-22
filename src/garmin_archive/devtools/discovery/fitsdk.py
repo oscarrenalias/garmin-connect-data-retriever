@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, cast
 
-from garmin_fit_sdk import Decoder, Stream  # pyright: ignore[reportMissingTypeStubs]
+from garmin_fit_sdk import Decoder, Stream
 
 
 @dataclass(frozen=True)
