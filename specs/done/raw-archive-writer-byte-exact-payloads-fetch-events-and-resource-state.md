@@ -5,7 +5,7 @@ description: "Atomic byte-exact raw payload storage with dedupe/versioning, fetc
 dependencies: null
 priority: high
 complexity: null
-status: planned
+status: done
 tags:
 - storage
 - archive
