@@ -95,3 +95,14 @@ def test_http_error_status_and_transport_errors_hide_url(
             assert "SECRET123" not in str(info.value)
             assert info.value.__cause__ is None
     assert "SECRET123" not in caplog.text
+
+
+def test_explicit_port_url_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
+    url = f"https://{HOST}:443/export.zip?X-Amz-Signature=SECRET123"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"PK-zip")
+
+    with caplog.at_level(logging.DEBUG):
+        assert download_form_zip(_client(httpx.MockTransport(handler)), url) == b"PK-zip"
+    assert "SECRET123" not in caplog.text

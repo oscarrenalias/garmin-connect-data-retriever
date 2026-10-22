@@ -75,6 +75,8 @@ def parse_form_fit(
     lengths = messages.get("length_mesgs", [])
     activities = messages.get("activity_mesgs", [])
     local_date = _local_date(activities[0] if activities else None)
+    if not sessions:
+        return [], []
 
     windows = [window(message) for message in sessions]
     grouped: list[list[Mapping[str, Any]]] = [[] for _ in sessions]

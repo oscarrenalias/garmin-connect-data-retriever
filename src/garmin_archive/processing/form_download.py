@@ -28,18 +28,15 @@ class FormDownloadError(GarminArchiveError):
 
 
 @contextmanager
-def _suppress_httpx_request_log(url: str) -> Generator[None]:
-    """Drop httpx log records that carry ``url``; its query string is a credential."""
+def _suppress_httpx_request_log() -> Generator[None]:
+    """Drop every httpx log record; httpx logs a normalised URL whose query is a credential."""
     httpx_logger = logging.getLogger("httpx")
-
-    def _allow(record: logging.LogRecord) -> bool:
-        return url not in record.getMessage()
-
-    httpx_logger.addFilter(_allow)
+    was_disabled = httpx_logger.disabled
+    httpx_logger.disabled = True
     try:
         yield
     finally:
-        httpx_logger.removeFilter(_allow)
+        httpx_logger.disabled = was_disabled
 
 
 def _host_of(url: str) -> str:
@@ -77,7 +74,7 @@ def download_form_zip(
     total = 0
     try:
         with (
-            _suppress_httpx_request_log(url),
+            _suppress_httpx_request_log(),
             client.stream("GET", url, follow_redirects=False, timeout=DOWNLOAD_TIMEOUT) as response,
         ):
             status = response.status_code

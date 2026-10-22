@@ -138,3 +138,24 @@ def test_undecodable_payload_skipped(conn: sqlite3.Connection, clock: FixedClock
     ArchiveWriter(conn, clock).record_import(body=b"not a fit file at all", filename="bad.fit")
     result = rebuild_form(conn)
     assert (result.unmatched, result.skipped) == (1, 1)
+
+
+def test_form_fit_without_sessions_is_empty_not_an_error(
+    conn: sqlite3.Connection, clock: FixedClock
+) -> None:
+    encoder = Encoder()
+    encoder.write_mesg({"mesg_num": 0, "type": "activity", "manufacturer": "form", "product": 0})
+    encoder.write_mesg(
+        {
+            "mesg_num": 101,
+            "start_time": START,
+            "length_type": "active",
+            "total_timer_time": 20.0,
+            "total_elapsed_time": 21.0,
+        }
+    )
+    _import(conn, clock, encoder.close())
+    _import(conn, clock, _form_fit())
+    result = rebuild_form(conn)
+    assert (result.matched, result.unmatched) == (0, 1)
+    assert conn.execute("SELECT COUNT(*) FROM form_sessions").fetchone()[0] == 1
