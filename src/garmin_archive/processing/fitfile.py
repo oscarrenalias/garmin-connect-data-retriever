@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import io
 import zipfile
+from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
+from typing import Any, cast
+
+from garmin_fit_sdk import Decoder, Stream
 
 from garmin_archive.models import GarminArchiveError
 
@@ -59,3 +63,34 @@ def extract_fit(body: bytes) -> bytes:
                 raise FitUnavailableError("FIT member exceeds size limit")
             return data
     raise FitUnavailableError("ZIP has no .fit member")
+
+
+@dataclass(frozen=True)
+class FitMessages:
+    """Decoded FIT message lists, as produced by the SDK (no unit conversion)."""
+
+    sessions: list[dict[str, Any]]
+    laps: list[dict[str, Any]]
+    records: list[dict[str, Any]]
+    sets: list[dict[str, Any]]
+
+
+def decode_fit(data: bytes) -> FitMessages:
+    """Decode FIT ``data`` into session, lap, record and set message lists.
+
+    SDK errors and exceptions are raised as ``FitUnavailableError``.
+    """
+    try:
+        decoder = Decoder(Stream.from_byte_array(bytearray(data)))
+        raw_messages, errors = decoder.read()
+    except Exception as exc:
+        raise FitUnavailableError("FIT file could not be decoded") from exc
+    if errors:
+        raise FitUnavailableError("FIT file could not be decoded")
+    messages = cast("dict[str, list[dict[str, Any]]]", raw_messages)
+    return FitMessages(
+        sessions=list(messages.get("session_mesgs", [])),
+        laps=list(messages.get("lap_mesgs", [])),
+        records=list(messages.get("record_mesgs", [])),
+        sets=list(messages.get("set_mesgs", [])),
+    )
