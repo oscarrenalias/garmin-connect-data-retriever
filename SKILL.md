@@ -15,7 +15,7 @@ Recommended location on an OpenClaw host:
 
 ```bash
 cd ~/.openclaw/workspace/skills
-git clone <this repository URL> garmin-connect-data-retriever
+git clone https://github.com/oscarrenalias/garmin-connect-data-retriever.git
 cd garmin-connect-data-retriever
 uv sync
 ```

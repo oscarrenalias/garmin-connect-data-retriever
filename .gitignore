@@ -1,10 +1,11 @@
 
-# takt
+# takt (runtime state; beads are not committed)
 .takt/worktrees/
 .takt/telemetry/
 .takt/logs/
 .takt/agent-runs/
 .takt/beads/
+.takt/memory/
 
 # OS / editors
 .DS_Store
@@ -19,6 +20,8 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+.coverage
+htmlcov/
 
 # Personal data — never commit
 .local/
@@ -33,6 +36,8 @@ build/
 *.gpx
 *.tcx
 .env
+.env.*
+!.env.example
 *.key
 
 # Claude Code local settings
