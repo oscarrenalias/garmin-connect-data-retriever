@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-garmin-archive = "garmin_archive.cli:app"
+garmin-archive = "garmin_archive.cli:_console_entry"
 
 [dependency-groups]
 dev = [

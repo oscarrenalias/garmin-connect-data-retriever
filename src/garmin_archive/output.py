@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any, TextIO
 
-import click
-
 from garmin_archive.models import AccountMismatchError, GarminArchiveError, StorageError
+
+UsageError: type[Exception]
+try:
+    from click import UsageError  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+except ImportError:  # typer >= 0.27 vendors click and no longer depends on it
+    from typer._click.exceptions import UsageError  # pyright: ignore[reportAttributeAccessIssue]
 
 OUTPUT_VERSION = 1
 
@@ -51,7 +55,7 @@ def exit_code_for(exc: BaseException) -> int:
         return 5
     if isinstance(exc, GarminArchiveError):
         return 1
-    if isinstance(exc, click.UsageError):
+    if isinstance(exc, UsageError):
         return 2
     return 1
 
