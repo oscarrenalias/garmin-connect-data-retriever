@@ -81,6 +81,8 @@ class SanitizeContext:
     rng: random.Random = field(default_factory=random.Random)
     pseudonyms: dict[str, str] = field(default_factory=lambda: {})
     originals: set[str] = field(default_factory=lambda: set[str]())
+    # Identifier and URL originals: never exempted by the pass-through allowance.
+    strict_originals: set[str] = field(default_factory=lambda: set[str]())
     pass_through: dict[str, set[str]] = field(default_factory=lambda: {})
     redaction_log: list[RedactionEntry] = field(default_factory=lambda: [])
     _used: set[str] = field(default_factory=lambda: set[str](), repr=False)
@@ -91,6 +93,7 @@ class SanitizeContext:
         if existing is not None:
             return existing
         self.originals.add(original)
+        self.strict_originals.add(original)
         while True:
             candidate = self._generate(original)
             if candidate != original and candidate not in self._used:
@@ -162,7 +165,7 @@ def _walk(
                 out[k] = v
                 continue
             is_id = k in EXPLICIT_ID_KEYS
-            generic_id = k.endswith(("Id", "ID", "UUID"))
+            generic_id = k.endswith(("Id", "ID", "UUID", "Pk", "PK"))
             lowered = k.lower()
             is_coord_key = "latitude" in lowered or "longitude" in lowered
             if is_coord_key and isinstance(v, (int, float)) and not isinstance(v, bool):
@@ -210,6 +213,7 @@ def _scalar(
         if value.startswith(("http://", "https://")):
             ctx.log(source, path, RULE_URL)
             ctx.originals.add(value)
+            ctx.strict_originals.add(value)
             return REDACTED_URL
     ctx.note_pass_through(source, value)
     return value
@@ -246,9 +250,10 @@ def _is_numeric_original(value: str) -> bool:
 def sensitive_set(ctx: SanitizeContext, source: str | None = None) -> frozenset[str]:
     """Return the originals that must not appear in written output (spec B7 rule 7).
 
-    With ``source``, exclude values that pass through unchanged in that source document.
-    Without it (report, manifests, redaction log), exclude pass-through values from all
-    documents.
+    With ``source``, exclude free-text originals that pass through unchanged in that source
+    document. Without it (report, manifests, redaction log), exclude them if they pass
+    through in any document. The exclusion only prevents free-text false positives (a name
+    equal to a typeKey); identifier and URL originals are always sensitive.
     """
     if source is None:
         allowed: set[str] = set()
@@ -258,7 +263,7 @@ def sensitive_set(ctx: SanitizeContext, source: str | None = None) -> frozenset[
         allowed = ctx.pass_through.get(source, set())
     out: set[str] = set()
     for original in ctx.originals:
-        if original in allowed:
+        if original in allowed and original not in ctx.strict_originals:
             continue
         if _is_numeric_original(original):
             if len(original.lstrip("-")) >= _MIN_SENSITIVE_DIGITS:
