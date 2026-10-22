@@ -1,4 +1,4 @@
-"""Sanitization of parsed Garmin JSON for committable fixtures (spec B7, rules 1-6).
+"""Sanitization of parsed Garmin JSON for committable fixtures (spec B7, rules 1-7).
 
 ``sanitize`` is pure over parsed JSON: it returns a new value and records bookkeeping
 (replaced originals, pass-through values, redaction log) on the supplied context. The
@@ -7,10 +7,12 @@ pseudonym map lives only in memory and is never persisted.
 
 from __future__ import annotations
 
+import json
 import random
 import re
 import string
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -220,3 +222,97 @@ def _note_all(value: Any, ctx: SanitizeContext, source: str) -> None:
             _note_all(v, ctx, source)
     else:
         ctx.note_pass_through(source, value)
+
+
+_MIN_SENSITIVE_STRING = 4
+_MIN_SENSITIVE_DIGITS = 5
+
+
+@dataclass(frozen=True)
+class LeakHit:
+    """One leak-check hit: where, never which value."""
+
+    json_path: str
+
+
+def _is_numeric_original(value: str) -> bool:
+    digits = value.lstrip("-")
+    return bool(digits) and digits.isascii() and digits.isdigit()
+
+
+def sensitive_set(ctx: SanitizeContext, source: str | None = None) -> frozenset[str]:
+    """Return the originals that must not appear in written output (spec B7 rule 7).
+
+    With ``source``, exclude values that pass through unchanged in that source document.
+    Without it (report, manifests, redaction log), exclude pass-through values from all
+    documents.
+    """
+    if source is None:
+        allowed: set[str] = set()
+        for values in ctx.pass_through.values():
+            allowed |= values
+    else:
+        allowed = ctx.pass_through.get(source, set())
+    out: set[str] = set()
+    for original in ctx.originals:
+        if original in allowed:
+            continue
+        if _is_numeric_original(original):
+            if len(original.lstrip("-")) >= _MIN_SENSITIVE_DIGITS:
+                out.add(original)
+        elif len(original) >= _MIN_SENSITIVE_STRING:
+            out.add(original)
+    return frozenset(out)
+
+
+def _matches(text: str, value: str) -> bool:
+    if _is_numeric_original(value):
+        return re.search(rf"(?<!\d){re.escape(value)}(?!\d)", text) is not None
+    return value in text
+
+
+def _leaks(text: str, sensitive: Iterable[str]) -> bool:
+    return any(_matches(text, v) for v in sensitive)
+
+
+def check_leaks(serialized: str, sensitive: Iterable[str]) -> list[LeakHit]:
+    """Search ``serialized`` for sensitive values; report json_paths only, never values.
+
+    Matching is case-sensitive substring search; numeric originals match only when not
+    adjacent to another digit. If the text is JSON the hits are located by path,
+    otherwise a single ``$`` hit is returned.
+    """
+    values = list(sensitive)
+    if not _leaks(serialized, values):
+        return []
+    try:
+        parsed = json.loads(serialized)
+    except ValueError:
+        return [LeakHit("$")]
+    paths = locate_leaks(parsed, values)
+    return paths or [LeakHit("$")]
+
+
+def locate_leaks(parsed: Any, sensitive: Iterable[str]) -> list[LeakHit]:
+    """Return the json_path of every key or scalar in ``parsed`` containing a sensitive value."""
+    values = list(sensitive)
+    hits: list[LeakHit] = []
+
+    def visit(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for raw_key, v in cast("dict[Any, Any]", node).items():
+                k = str(raw_key)
+                child = f"{path}.{k}"
+                if _leaks(k, values):
+                    hits.append(LeakHit(child))
+                visit(v, child)
+        elif isinstance(node, list):
+            for i, v in enumerate(cast("list[Any]", node)):
+                visit(v, f"{path}[{i}]")
+        elif node is not None and not isinstance(node, bool):
+            text = node if isinstance(node, str) else json.dumps(node)
+            if _leaks(text, values):
+                hits.append(LeakHit(path))
+
+    visit(parsed, "$")
+    return hits
