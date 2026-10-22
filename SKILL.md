@@ -143,3 +143,4 @@ FROM v_swim_lengths WHERE length_type='active' GROUP BY stroke_type ORDER BY len
 - Present paces as `m:ss /km` or `m:ss /100m`, distances in km or m, and durations as h:mm.
 - Always mention caveats that affect the conclusion: small samples, run/walk sessions, edited swims (`partial` coverage), missing sensors, or a stale sync.
 - If `update` fails with exit 3, ask the user to check their Garmin Personal API key. Never ask them to paste it into the chat.
+- If `update` or `auth check` fails with `RATE_LIMITED` (exit 4), Garmin is throttling the API key. This can happen during a large first import, or after many updates in a short time. Wait, then retry later. Don't loop or retry immediately. Queries (`schema`, `describe`, `sample`, `sql`) are unaffected, because they never contact Garmin.
