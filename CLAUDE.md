@@ -64,10 +64,10 @@ Before finishing any code change, run `uv run ruff check .`, `uv run ruff format
 
 ## takt workflow
 
-This project uses **takt** for multi-agent orchestration and **spec-management** (`.claude/skills/skill-spec-management/spec.py`) for spec lifecycle. Read `.claude/skills/takt/SKILL.md` before doing any takt operation.
+This project uses **takt** for multi-agent orchestration and **`takt spec`** (see the `skill-spec-management` skill) for spec lifecycle. Read `.claude/skills/takt/SKILL.md` before doing any takt operation.
 
 - Always use `uv run takt ...`. Never run plain `takt`.
-- Specs: create and transition them with `python3 .claude/skills/skill-spec-management/spec.py`. Never `mv` spec files or hand-edit frontmatter.
-- Flow: spec draft → `spec-reviewer` agent review → `uv run takt plan --write <spec>` → `spec.py set status planned` → `uv run takt --runner claude run` → `uv run takt merge <feature-root>` → `spec.py set status done`.
+- Specs: create and transition them with `uv run takt spec` (search with `uv run takt spec search`). Never `mv` spec files or hand-edit frontmatter.
+- Flow: spec draft → `spec-reviewer` agent review → `uv run takt plan --write <spec>` → `uv run takt spec set status planned` → `uv run takt --runner claude run` → `uv run takt merge <feature-root>` → `uv run takt spec set status done`.
 - Never `git merge` feature branches manually and never resolve takt merge-conflict beads by hand. Let the scheduler handle them.
 - Keep each spec small enough for about 3–5 developer beads.
