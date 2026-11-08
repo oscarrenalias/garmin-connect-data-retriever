@@ -1,6 +1,7 @@
 {
-  "takt_version": "0.1.56",
+  "takt_version": "0.1.70",
   "installed_at": "2026-10-22T11:47:11.250597+00:00",
+  "upgraded_at": "2026-11-08T21:22:56.422247+00:00",
   "assets": {
     "templates/agents/merge-conflict.md": {
       "sha256": "0ff7c26793c6f6bcf3d39bb31d3c63564b1517bc3ecda6cbf7bd0174b7e24d55",
@@ -58,7 +59,7 @@
       "user_owned": false
     },
     "templates/skills/role/reviewer-signoff/SKILL.md": {
-      "sha256": "f0e596009898ced54031691e9b188ad9eb95e9bf66ed06c62aee1bf0cceee906",
+      "sha256": "621f1bdb657d4e369deaaeb39f8a70fc2b6355525cb80295e848b73241b4ef76",
       "source": "bundled",
       "user_owned": false
     },
@@ -183,7 +184,7 @@
       "user_owned": false
     },
     "templates/skills/task/spec-intake/SKILL.md": {
-      "sha256": "0883e20971f8cb131b27cbb2077ec847c7d7e94f15b3a087a2cee13a3907ba07",
+      "sha256": "642d79051d282c2a9b4509134e2f3d69fd79abf6bfeff9d87de3fd896f67b8af",
       "source": "bundled",
       "user_owned": false
     },
@@ -223,17 +224,12 @@
       "user_owned": false
     },
     ".agents/skills/memory/SKILL.md": {
-      "sha256": "17e54f7d91bbdec6680a7b6d3fd54e6fe911da36bdc80400f4878c670e867252",
-      "source": "bundled",
-      "user_owned": false
-    },
-    ".agents/skills/task/spec-management/spec.py": {
-      "sha256": "28710015c49751a1df9d3813f7b690677c2f294a76b72f0b6238ceb2504a633f",
+      "sha256": "9e30ce615483b96c63f615e52be9a55408e1481ab2fa99d9862a0250c36d68bc",
       "source": "bundled",
       "user_owned": false
     },
     ".agents/skills/task/spec-management/SKILL.md": {
-      "sha256": "61321ffb72a3c1c6c9c5fae0fd915990257777d96ae97c431d5b0a39490812b7",
+      "sha256": "2f148b1e776ea28f47736d82e212b802f7e1f72635ad4d587fc4914adbd34cd4",
       "source": "bundled",
       "user_owned": false
     },
@@ -243,32 +239,47 @@
       "user_owned": false
     },
     ".claude/skills/takt/SKILL.md": {
-      "sha256": "7ae57fb24460bb99634813b12cdb221ea1be3a009bbf19975d6a343c70e9f6f7",
+      "sha256": "09110b0ea1e5fc81b408942504d54af331aa44f874a847e8b71b069f442ae904",
       "source": "bundled",
       "user_owned": false
     },
     ".claude/skills/memory/SKILL.md": {
-      "sha256": "17e54f7d91bbdec6680a7b6d3fd54e6fe911da36bdc80400f4878c670e867252",
-      "source": "bundled",
-      "user_owned": false
-    },
-    ".claude/skills/skill-spec-management/spec.py": {
-      "sha256": "0b5f2fc2cfc0a91fc80ff51e5b15d8ff96a2d60a9e0c4a5a1a6ef2a353bd4edf",
+      "sha256": "9e30ce615483b96c63f615e52be9a55408e1481ab2fa99d9862a0250c36d68bc",
       "source": "bundled",
       "user_owned": false
     },
     ".claude/skills/skill-spec-management/SKILL.md": {
-      "sha256": "8349a1b9c6375b5d0594e033bb5b3b57f6b92f83e9c8eae1eca37253e8bd6a27",
+      "sha256": "37aec09315ad8df99e68a619256d8087eb7ac5c30c7148b4a2e5fc0e5145112a",
       "source": "bundled",
       "user_owned": false
     },
     ".claude/agents/spec-reviewer.md": {
-      "sha256": "57bbb50cbd86b407ae2b4de8327c5cfe06430e1955f2ad5dd5a5ee41e7a20502",
+      "sha256": "35739ec452277f54bcd73700869dc27ca4b62b34225178ea44f3a7ac77c51be5",
       "source": "bundled",
       "user_owned": false
     },
     ".takt/config.yaml": {
       "sha256": "f46046413c86959561735006d7361f0394412ba0b53ac68996dbdc59992dd6cf",
+      "source": "bundled",
+      "user_owned": false
+    },
+    ".agents/skills/task/adr-management/SKILL.md": {
+      "sha256": "75ff5fce19fbe4549a58548ebd3b7b0167d6aff6e5641157964e69e115feae94",
+      "source": "bundled",
+      "user_owned": false
+    },
+    ".agents/skills/task/adr-management/agents/openai.yaml": {
+      "sha256": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+      "source": "bundled",
+      "user_owned": false
+    },
+    ".claude/skills/skill-adr-management/SKILL.md": {
+      "sha256": "237e13a64769a41f960bb6a8cfc082fe4f00b312646c155065ca6b205aa42ca9",
+      "source": "bundled",
+      "user_owned": false
+    },
+    "templates/adr/template.md": {
+      "sha256": "5d834eb0babb23d3b6b440cd3f131717b556adb4d85eb71ac753f41a11a91bb2",
       "source": "bundled",
       "user_owned": false
     }
